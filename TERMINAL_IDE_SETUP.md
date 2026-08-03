@@ -432,16 +432,6 @@ If bootstrapping manually on Linux, install Homebrew first (Linuxbrew), then:
 brew install micro yazi lazygit atuin herdr hunk opencode node
 ```
 
-### Windows (WSL2 recommended)
-
-> *"Set up a terminal IDE environment on Windows via WSL2 equivalent to the macOS setup with micro, yazi, lazygit, hunk, atuin, herdr, and opencode. Provide:*
-> 1. *WSL2 Ubuntu install steps*
-> 2. *Package manager install commands (apt)*
-> 3. *Windows Terminal configuration recommendations*
-> 4. *Configuration file contents for micro*
-> 5. *Suggested herdr-based workflow for productive development*
-> 6. *How to access WSL2 files from Windows and vice versa"*
-
 ---
 
 *Maintained by Ivan Lyutskanov*

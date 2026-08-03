@@ -38,6 +38,43 @@ Before we install anything, here's what each tool does and why you'd want it:
 
 ---
 
+## Part 0: Homebrew — The Package Manager
+
+All tools are installed via [Homebrew](https://brew.sh/), which works on both macOS and Linux (including Apple Silicon). If you don't have it yet:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+### Important: PATH after fresh install
+
+On a fresh machine, the Homebrew installer does **not** add `brew` to your running shell's PATH. After the install completes, you must evaluate the shellenv manually:
+
+**Apple Silicon Mac:**
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)"
+```
+
+**Intel Mac:**
+```bash
+eval "$(/usr/local/bin/brew shellenv)"
+```
+
+**Linux (Linuxbrew):**
+```bash
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+```
+
+To make this permanent, add the matching `eval` line to your `~/.zshrc` (or `~/.bashrc`):
+
+```bash
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc   # Apple Silicon
+```
+
+> The `bootstrap.sh` script handles all of this automatically — the PATH is detected, eval'd for the current shell, and persisted to your shell RC file.
+
+---
+
 ## Part 1: Install the Editor First — micro
 
 We need an editor before anything else. Micro is a modern, terminal-based editor that's easier to learn than vim but more powerful than nano.
@@ -183,7 +220,7 @@ brew install yazi
 
 By default, yazi uses `$EDITOR` which is probably vim. Let's change that.
 
-Add to your `~/.zshrc`:
+Add to your `~/.zshrc` (or `~/.bashrc`):
 
 ```bash
 export EDITOR=micro
@@ -278,9 +315,7 @@ hunk is an interactive diff and patch tool that integrates with your workflow fo
 ### Installation
 
 ```bash
-npm install -g hunkdiff
-# OR if you prefer
-cargo install hunkdiff
+brew install hunk
 ```
 
 ### Why hunk?
@@ -327,12 +362,20 @@ brew install atuin
 
 ### Configure Directory-Scoped History
 
-Add to your `~/.zshrc`:
+The shell init command differs depending on your shell.
+
+**For zsh** (add to `~/.zshrc`):
 
 ```bash
 eval "$(atuin init zsh --disable-up-arrow)"
 bindkey "^[[A" atuin-up-search-vicmd
 bindkey "^[[A" atuin-up-search
+```
+
+**For bash** (add to `~/.bashrc`):
+
+```bash
+eval "$(atuin init bash)"
 ```
 
 And configure the Atuin config (`~/.config/atuin/config.toml`):
@@ -346,6 +389,8 @@ inline_height = 20
 
 The key setting `up_key_dir_scoped = true` makes Up Arrow search only within the current directory's history.
 
+> The `bootstrap.sh` script detects your shell automatically and writes the correct init command. It also only writes `config.toml` if it doesn't already exist, making re-runs safe.
+
 ### Essential atuin Keys
 
 | Action | Key |
@@ -357,7 +402,25 @@ The key setting `up_key_dir_scoped = true` makes Up Arrow search only within the
 
 ---
 
-## Part 7: Documentation Viewer — herdr
+## Part 7: AI Coding Agent — opencode
+
+opencode is an AI coding agent built for the terminal.
+
+### Installation
+
+```bash
+brew install opencode
+```
+
+### Usage
+
+```bash
+opencode
+```
+
+---
+
+## Part 8: Documentation Viewer — herdr
 
 herdr is a Markdown TUI reader and workflow orchestrator—perfect for viewing documentation, cheatsheets, and onboarding guides.
 
@@ -392,7 +455,7 @@ herdr TERMINAL_IDE_SETUP.md
 
 ---
 
-## Part 8: Putting It All Together — The Layout
+## Part 9: Putting It All Together — The Layout
 
 Here's a productive tmux layout that mirrors a traditional IDE:
 
@@ -441,28 +504,25 @@ Result:
 
 ---
 
-## Platform-Specific Prompts
+## Platform-Specific Notes
 
-Need this setup on Linux? The bootstrap script handles it automatically:
+### One-liner Bootstrap
+
+The bootstrap script handles everything automatically — Homebrew installation, PATH setup, tool installation, and shell configuration:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ivan-lyutskanov/terminal-bootstrap/master/bootstrap.sh | bash
 ```
 
-The script detects Linux and uses Linuxbrew automatically.
+The script detects your OS and shell, installs all tools via Homebrew (a single package manager for everything), and configures your shell RC file.
 
 ### Linux (Ubuntu/Debian)
 
-If bootstrapping manually, use apt equivalents:
+If bootstrapping manually on Linux, install Homebrew first (Linuxbrew), then:
 
 ```bash
-# Core tools
-sudo apt install tmux micro
-
-# Other tools
-brew install yazi lazygit atuin
-npm install -g hunkdiff
-brew install herdr
+# All tools via Homebrew
+brew install micro tmux yazi lazygit atuin herdr hunk opencode node
 ```
 
 ### Windows (WSL2 recommended)

@@ -1,6 +1,6 @@
 # Terminal IDE Setup for macOS & Linux
 
-A complete guide for building a VS Code-like experience in the terminal using tmux, micro, yazi, lazygit, hunk, atuin, and herdr.
+A complete guide for building a VS Code-like experience in the terminal using micro, yazi, lazygit, hunk, atuin, herdr, and opencode.
 
 ---
 
@@ -23,18 +23,55 @@ Before we install anything, here's what each tool does and why you'd want it:
 
 | Tool | Purpose | VS Code Equivalent |
 |------|---------|-------------------|
-| **tmux** | Terminal multiplexer — manages multiple terminal sessions, splits windows into pane, and detaches/reattaches remotely | Window/workspace management |
 | **micro** | Modern terminal text editor with syntax highlighting, built-in plugin system, and intuitive keybindings | Code editor |
 | **yazi** | Blazing-fast file manager with fuzzy search, builtin preview (images, PDF, archives), and vim-like keybinding | File explorer |
 | **lazygit** | Beautiful TUI for Git — stage files, view diffs, commit, push — all with keyboard or mouse | Source Control tab |
 | **hunk** | Interactive diff & patch tool — review granular code changes, stage hunks interactively | Inline diff viewer |
 | **atuin** | Magical shell history — directory-scoped search with Up Arrow | Searchable history |
-| **herdr** | Markdown TUI reader & workflow orchestrator — view docs, cheatsheets, onboarding guides | Documentation viewer |
+| **herdr** | Workspace orchestrator — manages sessions, views docs, runs workflows, coordinates tools | Workspace & session management |
+| **opencode** | AI coding agent built for the terminal | AI assistant / Copilot |
 
 **Why this combo?** All tools are:
 - Lightweight and blazing fast
 - Actively maintained
-- Designed to interoperate (yazi opens files in your $EDITOR, hunk stages hunks, herdr displays guides)
+- Designed to interoperate (yazi opens files in your $EDITOR, hunk stages hunks, herdr orchestrates your workflow)
+
+---
+
+## Part 0: Homebrew — The Package Manager
+
+All tools are installed via [Homebrew](https://brew.sh/), which works on both macOS and Linux (including Apple Silicon). If you don't have it yet:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+### Important: PATH after fresh install
+
+On a fresh machine, the Homebrew installer does **not** add `brew` to your running shell's PATH. After the install completes, you must evaluate the shellenv manually:
+
+**Apple Silicon Mac:**
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)"
+```
+
+**Intel Mac:**
+```bash
+eval "$(/usr/local/bin/brew shellenv)"
+```
+
+**Linux (Linuxbrew):**
+```bash
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+```
+
+To make this permanent, add the matching `eval` line to your `~/.zshrc` (or `~/.bashrc`):
+
+```bash
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc   # Apple Silicon
+```
+
+> The `bootstrap.sh` script handles all of this automatically — the PATH is detected, eval'd for the current shell, and persisted to your shell RC file.
 
 ---
 
@@ -68,101 +105,7 @@ brew install micro
 
 ---
 
-## Part 2: Organize with Sessions — tmux
-
-Now let's install tmux. This is the "glue" that holds your workspace together — it lets you create multiple terminal windows, split them into pane, and detach/reattach from anywhere.
-
-### Installation
-
-```bash
-brew install tmux
-```
-
-### Why tmux?
-
-- **Split pane** — View multiple things simultaneously (editor + file browser + git)
-- **Persist sessions** — Detach and reattach from SSH or after a reboot
-- **Session multiplexing** — Run multiple projects in separate sessions
-- **Highly configurable** — Your setup, your rules
-
-### Configure tmux
-
-Create or edit your tmux config:
-
-```bash
-nano ~/.tmux.conf
-```
-
-Paste this starter configuration:
-
-```bash
-# --- Core Settings ---
-set -g mouse on
-setw -g mode-keys vi
-
-# --- Copy Mode Bindings (Space / Enter) ---
-# Start selection with Space
-bind -T copy-mode-vi Space send -X begin-selection
-# Copy to Mac System Clipboard with Enter (macOS)
-bind -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "pbcopy"
-# Copy to clipboard on Linux (replace with xclip or wl-copy)
-# bind -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "xclip -selection clipboard"
-
-# --- Convenience Bindings ---
-# Shortcut to reload config: Ctrl+b then r
-bind r source-file ~/.tmux.conf \; display "Config Reloaded!"
-
-# --- Plugin Manager (TPM) ---
-# List of plugins
-set -g @plugin 'tmux-plugin/tpm'
-set -g @plugin 'tmux-plugin/tmux-yank'
-
-# Initialize TPM (Keep this at the very bottom!)
-run '~/.tmux/plugins/tpm/tpm'
-```
-
-### Install TPM (Tmux Plugin Manager)
-
-```bash
-git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-```
-
-### Apply Changes
-
-Reload config (run this or press `Ctrl+b` then `r` inside tmux):
-
-```bash
-tmux source-file ~/.tmux.conf
-```
-
-Install plugin (inside tmux):
-
-- Press `Ctrl+b` then `Shift+I`
-
-Watch for the progress bar at the bottom. Done!
-
-### Essential tmux Cheat Sheet
-
-| Action | Command |
-|--------|---------|
-| Prefix key | `Ctrl+b` |
-| New window | `Ctrl+b` then `c` |
-| Next window | `Ctrl+b` then `n` |
-| Previous window | `Ctrl+b` then `p` |
-| Vertical split | `Ctrl+b` then `"` |
-| Horizontal split | `Ctrl+b` then `%` |
-| Switch pane | `Ctrl+b` then arrow |
-| Enter copy mode | `Ctrl+b` then `[` |
-| Start selection | `Space` |
-| Copy to clipboard | `Enter` |
-| Paste | `Ctrl+b` then `]` |
-| Reload config | `Ctrl+b` then `r` |
-| Detach session | `Ctrl+b` then `d` |
-| Reattach | `tmux attach` |
-
----
-
-## Part 3: Browse Files — yazi
+## Part 2: Browse Files — yazi
 
 Next up: yazi. This is your file explorer — a blazing-fast alternative to vim's netrw, nnn, or fzf.
 
@@ -183,7 +126,7 @@ brew install yazi
 
 By default, yazi uses `$EDITOR` which is probably vim. Let's change that.
 
-Add to your `~/.zshrc`:
+Add to your `~/.zshrc` (or `~/.bashrc`):
 
 ```bash
 export EDITOR=micro
@@ -224,7 +167,7 @@ yazi can preview files in a separate pane. Toggle preview with `Ctrl+p`. Best fo
 
 ---
 
-## Part 4: Git Management — lazygit
+## Part 3: Git Management — lazygit
 
 Finally, lazygit. This is your visual Git interface — think of it as the Source Control panel from VS Code but more powerful.
 
@@ -244,7 +187,7 @@ brew install lazygit
 
 ### Basic Workflow
 
-1. Run `lazygit` in its own tmux pane (more on layout below)
+1. Run `lazygit` in a terminal tab or via herdr's workflow orchestration
 2. Navigate with arrow keys or mouse
 3. Press `?` for help anytime
 
@@ -271,16 +214,14 @@ brew install lazygit
 
 ---
 
-## Part 5: Interactive Diffs — hunk
+## Part 4: Interactive Diffs — hunk
 
 hunk is an interactive diff and patch tool that integrates with your workflow for granular change review.
 
 ### Installation
 
 ```bash
-npm install -g hunkdiff
-# OR if you prefer
-cargo install hunkdiff
+brew install hunk
 ```
 
 ### Why hunk?
@@ -308,7 +249,7 @@ hunk pairs beautifully with lazygit:
 
 ---
 
-## Part 6: Smart Shell History — atuin
+## Part 5: Smart Shell History — atuin
 
 Atuin replaces your shell history with a magical, searchable SQLite-backed history that syncs across machines.
 
@@ -327,12 +268,20 @@ brew install atuin
 
 ### Configure Directory-Scoped History
 
-Add to your `~/.zshrc`:
+The shell init command differs depending on your shell.
+
+**For zsh** (add to `~/.zshrc`):
 
 ```bash
 eval "$(atuin init zsh --disable-up-arrow)"
 bindkey "^[[A" atuin-up-search-vicmd
 bindkey "^[[A" atuin-up-search
+```
+
+**For bash** (add to `~/.bashrc`):
+
+```bash
+eval "$(atuin init bash)"
 ```
 
 And configure the Atuin config (`~/.config/atuin/config.toml`):
@@ -346,6 +295,8 @@ inline_height = 20
 
 The key setting `up_key_dir_scoped = true` makes Up Arrow search only within the current directory's history.
 
+> The `bootstrap.sh` script detects your shell automatically and writes the correct init command. It also only writes `config.toml` if it doesn't already exist, making re-runs safe.
+
 ### Essential atuin Keys
 
 | Action | Key |
@@ -357,9 +308,27 @@ The key setting `up_key_dir_scoped = true` makes Up Arrow search only within the
 
 ---
 
-## Part 7: Documentation Viewer — herdr
+## Part 6: AI Coding Agent — opencode
 
-herdr is a Markdown TUI reader and workflow orchestrator—perfect for viewing documentation, cheatsheets, and onboarding guides.
+opencode is an AI coding agent built for the terminal.
+
+### Installation
+
+```bash
+brew install opencode
+```
+
+### Usage
+
+```bash
+opencode
+```
+
+---
+
+## Part 7: Workspace Orchestrator — herdr
+
+herdr is a Markdown TUI reader and workflow orchestrator — it manages your workspace sessions, displays documentation, and coordinates your terminal tools into a unified workflow.
 
 ### Installation
 
@@ -369,8 +338,9 @@ brew install herdr
 
 ### Why herdr?
 
-- **Markdown rendering** — Beautiful terminal-native MD viewer
-- **Workflow orchestration** — Run commands, follow steps
+- **Workspace orchestration** — Manages sessions and coordinates your tools (editor, git, file manager) into a unified workflow
+- **Markdown rendering** — Beautiful terminal-native MD viewer for docs, cheatsheets, and onboarding guides
+- **Workflow orchestration** — Run commands, follow steps, track progress
 - **Keyboard-driven** — Fully accessible, no mouse needed
 - **Cheatsheet mode** — Perfect for quick reference
 
@@ -392,88 +362,75 @@ herdr TERMINAL_IDE_SETUP.md
 
 ---
 
-## Part 8: Putting It All Together — The Layout
+## Part 8: Putting It All Together — The Workflow
 
-Here's a productive tmux layout that mirrors a traditional IDE:
+herdr acts as the central orchestrator for your terminal IDE. It manages your workflow by coordinating the tools you need, when you need them — no manual pane management required.
 
-### The Setup
+### The herdr-Centric Workflow
 
 ```
-+-----------------+-----------------+
-|            |              |
-|   Claude   |    yazi      |
-|    Code    |   (files)    |
-|            |              |
-|     AI     +--------------+
-|    Agent   |              |
-|     CLI    |   lazygit    |
-|            |    (git)     |     
-|            |              |
-+------------+---------------+
+┌─────────────────────────────────────────────┐
+│                  herdr                       │
+│         (workspace orchestrator)             │
+│                                              │
+│  • Browse & open files → yazi → micro       │
+│  • Review changes → hunk                    │
+│  • Stage & commit → lazygit                 │
+│  • AI assistance → opencode                 │
+│  • Recall commands → atuin                  │
+│  • View docs & guides → herdr (self)        │
+└─────────────────────────────────────────────┘
 ```
 
-### Step-by-Step
+### How It Works
 
-1. **Open tmux** (`tmux` or `tmux new` if not already)
-2. **Create vertical split** — `Ctrl+b` then `"` (gives you left/right, 50/50)
-3. **Create horizontal split in right pane** — `Ctrl+b` then `%`
-
-Result:
-- Left pane (~60%): Claude Code (or your terminal/editor)
-- Right-top pane (~60%): yazi
-- Right-bottom pane (~40%): lazygit
+1. **Start herdr** — `herdr` launches the workspace orchestrator
+2. **Navigate files** — herdr invokes **yazi** to browse your project; press Enter on a file to open it in **micro**
+3. **Edit & save** — Make changes in micro, save with `Ctrl+s`, return to herdr
+4. **Review changes** — herdr launches **hunk** to review granular diffs before committing
+5. **Stage & commit** — herdr invokes **lazygit** for visual staging, committing, and pushing
+6. **AI assistance** — Need help? herdr coordinates with **opencode** for AI-powered coding assistance
+7. **Recall commands** — **Atuin** provides directory-scoped history so you can quickly recall previous commands for this project
 
 ### Usage Flow
 
-1. Navigate files in **yazi** (right-top)
-2. Press **Enter** on a file → opens in **micro** (same pane)
-3. Edit, save (`Ctrl+s`), switch back to yazi (`Ctrl+b` then arrow)
-4. Meanwhile, check git status in **lazygit** (right-bottom)
-5. Use **hunk** to review granular changes before staging
-6. Use **Atuin** to recall commands from this project
-7. Make changes → stage in lazygit → commit → push
+1. Launch `herdr` in your project directory
+2. Browse files → open in micro → edit → save
+3. Review changes with hunk to ensure correctness
+4. Stage and commit via lazygit
+5. Push when ready
+6. Use Atuin (Up Arrow) to recall commands from this project's history
 
-### Customize the Layout
+### Why herdr as the Orchestrator?
 
-- **Resize pane:** `Ctrl+b` then `Alt+arrow`
-- **Swap pane:** `Ctrl+b` then `{` or `}`
-- **Zoom pane:** `Ctrl+b` then `z` (toggle full-screen)
+- **Purpose-built** — herdr understands your dev workflow, not just terminal windows
+- **Tool coordination** — Launches the right tool at the right time instead of static panes
+- **Workflow tracking** — Follow guided steps, check off tasks, track progress
+- **Less cognitive load** — No need to remember pane layouts or keybindings for window management
+- **Documentation-native** — Your setup guides, cheatsheets, and onboarding docs live inside herdr
 
 ---
 
-## Platform-Specific Prompts
+## Platform-Specific Notes
 
-Need this setup on Linux? The bootstrap script handles it automatically:
+### One-liner Bootstrap
+
+The bootstrap script handles everything automatically — Homebrew installation, PATH setup, tool installation, and shell configuration:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ivan-lyutskanov/terminal-bootstrap/master/bootstrap.sh | bash
 ```
 
-The script detects Linux and uses Linuxbrew automatically.
+The script detects your OS and shell, installs all tools via Homebrew (a single package manager for everything), and configures your shell RC file.
 
 ### Linux (Ubuntu/Debian)
 
-If bootstrapping manually, use apt equivalents:
+If bootstrapping manually on Linux, install Homebrew first (Linuxbrew), then:
 
 ```bash
-# Core tools
-sudo apt install tmux micro
-
-# Other tools
-brew install yazi lazygit atuin
-npm install -g hunkdiff
-brew install herdr
+# All tools via Homebrew
+brew install micro yazi lazygit atuin herdr hunk opencode node
 ```
-
-### Windows (WSL2 recommended)
-
-> *"Set up a terminal IDE environment on Windows via WSL2 equivalent to the macOS setup with tmux, micro, yazi, lazygit, hunk, atuin, and herdr. Provide:*
-> 1. *WSL2 Ubuntu install steps*
-> 2. *Package manager install commands (apt)*
-> 3. *Windows Terminal configuration recommendations*
-> 4. *Configuration file contents for tmux and micro*
-> 5. *Suggested tmux layout for a productive workflow*
-> 6. *How to access WSL2 files from Windows and vice versa"*
 
 ---
 

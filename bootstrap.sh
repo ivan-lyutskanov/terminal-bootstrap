@@ -13,23 +13,41 @@ is_installed() {
     command -v "$1" &> /dev/null
 }
 
+# Determine shell RC file early (needed for brew PATH persistence)
+SHELL_RC="$HOME/.zshrc"
+[[ "$SHELL" == *"/bash"* ]] && SHELL_RC="$HOME/.bashrc"
+
 # 1. Package Manager Setup
 if ! is_installed brew; then
     echo -e "${BLUE}==> Installing Homebrew...${NC}"
-    # Detect Linux vs macOS for correct install script
-    if [[ "$(uname)" == "Linux" ]]; then
-        BREW_INSTALL_URL="https://raw.githubusercontent.com/Linuxbrew/install/master/install.sh"
-    else
-        BREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
-    fi
-    /bin/bash -c "$(curl -fsSL "$BREW_INSTALL_URL")"
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    # After install, detect brew binary and configure PATH for the running shell
+    for BREW_BIN in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
+        if [ -x "$BREW_BIN" ]; then
+            eval "$("$BREW_BIN" shellenv)"
+            # Persist to shell RC so future sessions also find brew
+            if ! grep -q 'brew shellenv' "$SHELL_RC" 2>/dev/null; then
+                {
+                    echo ''
+                    echo '# Homebrew'
+                    echo "eval \"\$($BREW_BIN shellenv)\""
+                } >> "$SHELL_RC"
+            fi
+            break
+        fi
+    done
 fi
 
-# 2. Core TUI Tools Installation
+# 2. Update Homebrew before installing tools
+echo -e "${BLUE}==> Updating Homebrew...${NC}"
+brew update
+
+# 3. Core TUI Tools Installation
 echo -e "${BLUE}==> Checking and installing TUI tools...${NC}"
 
 TOOLS_TO_BREW=()
-for tool in micro yazi lazygit atuin node herdr; do
+for tool in micro yazi lazygit atuin node herdr hunk opencode; do
     if ! is_installed "$tool"; then
         TOOLS_TO_BREW+=("$tool")
     else
@@ -41,40 +59,7 @@ if [ ${#TOOLS_TO_BREW[@]} -ne 0 ]; then
     brew install "${TOOLS_TO_BREW[@]}"
 fi
 
-# 3. Rust Toolchain (required to build hunk & herdr)
-cargo_path=$(command -v cargo 2>/dev/null || brew --prefix rustup/bin/cargo 2>/dev/null || echo "")
-
-if [ -z "$cargo_path" ]; then
-    echo -e "${BLUE}==> Installing Rust toolchain (required for hunk/herdr)...${NC}"
-    brew install rust
-fi
-
-# Ensure cargo is in PATH - try multiple possible locations
-for p in "$(brew --prefix rust)/bin" "$(brew --prefix rustup)/bin" "$HOME/.cargo/bin"; do
-    if [ -x "$p/cargo" ]; then
-        export PATH="$p:$PATH"
-        break
-    fi
-done
-
-# Install hunk via npm (now a TypeScript project)
-if ! is_installed hunk; then
-    echo -e "${BLUE}==> Installing hunk via npm...${NC}"
-    npm install -g hunkdiff || true
-fi
-
-# 4. OpenCode Agent Setup
-if ! is_installed opencode; then
-    echo -e "${BLUE}==> Installing OpenCode...${NC}"
-    npm install -g opencode-ai
-else
-    echo -e "${YELLOW}  - opencode is already installed. Skipping.${NC}"
-fi
-
-# 5. Set Micro as Default Editor
-SHELL_RC="$HOME/.zshrc"
-[[ "$SHELL" == *"/bash"* ]] && SHELL_RC="$HOME/.bashrc"
-
+# 4. Set Micro as Default Editor
 if ! grep -q 'EDITOR="micro"' "$SHELL_RC" 2>/dev/null; then
     echo -e "${BLUE}==> Configuring Micro as default editor in $SHELL_RC...${NC}"
     {
@@ -88,25 +73,33 @@ if ! grep -q 'EDITOR="micro"' "$SHELL_RC" 2>/dev/null; then
     export VISUAL="micro"
 fi
 
-# 6. Atuin Directory-Scoped History Setup
+# 5. Atuin Directory-Scoped History Setup
 mkdir -p "$HOME/.config/atuin"
-cat << 'EOF' > "$HOME/.config/atuin/config.toml"
+
+# Only write config if it doesn't already exist (idempotent)
+if [ ! -f "$HOME/.config/atuin/config.toml" ]; then
+    cat << 'EOF' > "$HOME/.config/atuin/config.toml"
 search_mode = "prefix"
 up_key_dir_scoped = true
 style = "compact"
 inline_height = 20
 EOF
+fi
 
 if ! grep -q "atuin init" "$SHELL_RC" 2>/dev/null; then
     echo -e "${BLUE}==> Wiring Atuin into shell environment...${NC}"
-    {
-      echo 'eval "$(atuin init zsh --disable-up-arrow)"'
-      echo 'bindkey "^[[A" atuin-up-search-vicmd'
-      echo 'bindkey "^[[A" atuin-up-search'
-    } >> "$SHELL_RC"
+    if [[ "$SHELL" == *"/bash"* ]]; then
+        { echo 'eval "$(atuin init bash)"'; } >> "$SHELL_RC"
+    else
+        {
+            echo 'eval "$(atuin init zsh --disable-up-arrow)"'
+            echo 'bindkey "^[[A" atuin-up-search-vicmd'
+            echo 'bindkey "^[[A" atuin-up-search'
+        } >> "$SHELL_RC"
+    fi
 fi
 
-# 7. Configure OpenCode Skill: Hunk Agent Workflow
+# 6. Configure OpenCode Skill: Hunk Agent Workflow
 echo -e "${BLUE}==> Configuring OpenCode skill for Hunk review workflow...${NC}"
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 mkdir -p "$OPENCODE_SKILLS_DIR"
@@ -130,7 +123,7 @@ This workflow instructs OpenCode on how to inspect staged/unstaged changes using
    - Default terminal editor is `micro`. Never spawn `vim` or `nano` subshells.
 EOF
 
-# 8. Create Onboarding Markdown Guide
+# 7. Create Onboarding Markdown Guide
 GUIDE_PATH="$HOME/.config/herdr/onboarding.md"
 mkdir -p "$(dirname "$GUIDE_PATH")"
 

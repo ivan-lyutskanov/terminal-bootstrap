@@ -1,6 +1,6 @@
 # Terminal Environment Bootstrap
 
-An idempotent bootstrap script to quickly replicate a terminal-native, keyboard-driven development workstation on macOS or Linux.
+A reliable bootstrap script to quickly replicate a terminal-native, keyboard-driven development workstation on macOS or Linux.
 
 ## 🛠️ What Gets Installed & Configured
 
@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/your-username/dotfiles-bootstrap/ma
 
 ## ⚙️ How It Works
 
-1. **Idempotence Check:** Checks whether tools (`brew`, `micro`, `yazi`, `lazygit`, `atuin`, `node`, `opencode`, `hunk`, `herdr`) are already installed on the system before attempting installation.
+1. **Reliability Check:** Checks whether tools (`brew`, `micro`, `yazi`, `lazygit`, `atuin`, `node`, `opencode`, `hunk`, `herdr`) are already installed on the system before attempting installation.
 2. **Environment Export:** Configures `~/.zshrc` or `~/.bashrc` with `export EDITOR="micro"` and binds the up-arrow key for Atuin directory-scoped search.
 3. **OpenCode Skill Setup:** Provisions `~/.config/opencode/skills/hunk_review.md` instructing OpenCode to use `hunk` for granular diff inspection and interactive staging.
 4. **Onboarding Launch:** Writes a cheatsheet to `~/.config/herdr/onboarding.md` and opens it in Herdr, providing instructions on setting up API key access tokens via macOS Keychain or Linux Secret Tool.
@@ -46,22 +46,34 @@ curl -fsSL https://raw.githubusercontent.com/your-username/dotfiles-bootstrap/ma
 
 ## 🔑 Post-Installation: Keychain Setup for AI Tokens
 
-To keep your AI provider API keys safe without hardcoding them in plain text:
+To keep your API keys secure without hardcoding them in your shell:
 
 ### macOS
 ```bash
-# Save your key into Apple Keychain
-security add-generic-password -a "$USER" -s "OPENAI_API_KEY" -w "your-actual-api-key"
+# Add your provider key(s) to Keychain - pick yours:
+security add-generic-password -a "$USER" -s "ANTHROPIC_API_KEY" -w "$ANTHROPIC_API_KEY"
+security add-generic-password -a "$USER" -s "OPENAI_API_KEY" -w "$OPENAI_API_KEY"
+security add-generic-password -a "$USER" -s "GOOGLE_API_KEY" -w "$GOOGLE_API_KEY"
 
-# Append retrieval to ~/.zshrc
-echo 'export OPENAI_API_KEY=$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)' >> ~/.zshrc
+# Add to your shell rc - uncomment the providers you use:
+echo '# API Keys from Keychain' >> ~/.zshrc
+echo 'export ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s "ANTHROPIC_API_KEY" -w)' >> ~/.zshrc
+# echo 'export OPENAI_API_KEY=$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)' >> ~/.zshrc
+# echo 'export GOOGLE_API_KEY=$(security find-generic-password -a "$USER" -s "GOOGLE_API_KEY" -w)' >> ~/.zshrc
 ```
 
 ### Linux (`libsecret` / `secret-tool`)
 ```bash
-# Store key
+# Store your provider key(s):
+secret-tool store --name="Anthropic Key" service anthropic username "$USER"
 secret-tool store --name="OpenAI Key" service openai username "$USER"
+secret-tool store --name="Google Key" service google username "$USER"
 
-# Append retrieval to ~/.bashrc or ~/.zshrc
-echo 'export OPENAI_API_KEY=$(secret-tool lookup service openai username "$USER")' >> ~/.zshrc
+# Add to your shell rc:
+echo '# API Keys from secret-tool' >> ~/.zshrc
+echo 'export ANTHROPIC_API_KEY=$(secret-tool lookup service anthropic username "$USER")' >> ~/.zshrc
+# echo 'export OPENAI_API_KEY=$(secret-tool lookup service openai username "$USER")' >> ~/.zshrc
+# echo 'export GOOGLE_API_KEY=$(secret-tool lookup service google username "$USER")' >> ~/.zshrc
+
+Your OpenCode config will automatically pick up whichever key(s) you've configured.
 ```

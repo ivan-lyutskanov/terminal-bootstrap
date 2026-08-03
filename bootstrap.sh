@@ -38,9 +38,9 @@ fi
 # 3. Rust Toolchain (required to build hunk & herdr)
 if ! is_installed cargo; then
     echo -e "${BLUE}==> Installing Rust toolchain (required for hunk/herdr)...${NC}"
-    brew install rustup-init
-    rustup-init -y --no-modify-path
-    source "$HOME/.cargo/env"
+    brew install rust
+    # Ensure cargo is in PATH
+    export PATH="$(brew --prefix rust)/bin:$PATH"
 fi
 
 # Install hunk and herdr via Cargo if missing

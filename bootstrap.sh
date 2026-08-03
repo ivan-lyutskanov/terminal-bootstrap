@@ -184,5 +184,11 @@ export OPENAI_API_KEY=$(secret-tool lookup service openai username "$USER")
 *Press `q` or `Ctrl+C` to close Herdr when finished.*
 EOF
 
+SETUP_GUIDE="$HOME/.config/herdr/TERMINAL_IDE_SETUP.md"
+cp "$(dirname "$0")/TERMINAL_IDE_SETUP.md" "$SETUP_GUIDE" 2>/dev/null || true
+
 echo -e "${GREEN}==> Setup completed successfully!${NC}"
-echo -e "${YELLOW}Guide saved to: $GUIDE_PATH${NC}"
+echo -e ""
+echo -e "${BLUE}📚 Complete Setup Guide:${NC} ${YELLOW}$SETUP_GUIDE${NC}"
+echo -e "${BLUE}🔗 Or view online:${NC} https://github.com/ivan-lyutskanov/terminal-bootstrap/blob/master/TERMINAL_IDE_SETUP.md"
+echo -e ""

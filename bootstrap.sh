@@ -16,7 +16,13 @@ is_installed() {
 # 1. Package Manager Setup
 if ! is_installed brew; then
     echo -e "${BLUE}==> Installing Homebrew...${NC}"
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Detect Linux vs macOS for correct install script
+    if [[ "$(uname)" == "Linux" ]]; then
+        BREW_INSTALL_URL="https://raw.githubusercontent.com/Linuxbrew/install/master/install.sh"
+    else
+        BREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
+    fi
+    /bin/bash -c "$(curl -fsSL "$BREW_INSTALL_URL")"
 fi
 
 # 2. Core TUI Tools Installation

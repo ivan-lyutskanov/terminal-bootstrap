@@ -23,7 +23,7 @@ fi
 echo -e "${BLUE}==> Checking and installing TUI tools...${NC}"
 
 TOOLS_TO_BREW=()
-for tool in micro yazi lazygit atuin node; do
+for tool in micro yazi lazygit atuin node herdr; do
     if ! is_installed "$tool"; then
         TOOLS_TO_BREW+=("$tool")
     else
@@ -51,15 +51,10 @@ for p in "$(brew --prefix rust)/bin" "$(brew --prefix rustup)/bin" "$HOME/.cargo
     fi
 done
 
-# Install hunk and herdr via Cargo if missing
+# Install hunk via npm (now a TypeScript project)
 if ! is_installed hunk; then
-    echo -e "${BLUE}==> Installing hunk via Cargo...${NC}"
-    cargo install --git https://github.com/modem-dev/hunk --tag v0.17.7 || true
-fi
-
-if ! is_installed herdr; then
-    echo -e "${BLUE}==> Installing herdr via Cargo...${NC}"
-    cargo install --git https://github.com/herdrdev/herdr --tag v0.7.5 || true
+    echo -e "${BLUE}==> Installing hunk via npm...${NC}"
+    npm install -g hunkdiff || true
 fi
 
 # 4. OpenCode Agent Setup
@@ -183,7 +178,5 @@ export OPENAI_API_KEY=$(secret-tool lookup service openai username "$USER")
 *Press `q` or `Ctrl+C` to close Herdr when finished.*
 EOF
 
-echo -e "${GREEN}==> Setup completed successfully! Launching Herdr...${NC}"
-
-# Launch Herdr with the guide, fallback to micro if herdr fails
-herdr "$GUIDE_PATH" || micro "$GUIDE_PATH"
+echo -e "${GREEN}==> Setup completed successfully!${NC}"
+echo -e "${YELLOW}Guide saved to: $GUIDE_PATH${NC}"

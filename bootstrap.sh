@@ -101,10 +101,11 @@ fi
 
 # 6. Configure OpenCode Skill: Hunk Agent Workflow
 echo -e "${BLUE}==> Configuring OpenCode skill for Hunk review workflow...${NC}"
-OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
-mkdir -p "$OPENCODE_SKILLS_DIR"
+OPENCODE_SKILL_DIR="$HOME/.config/opencode/skills/hunk-review"
+mkdir -p "$OPENCODE_SKILL_DIR"
 
-cat << 'EOF' > "$OPENCODE_SKILLS_DIR/hunk_review.md"
+if [ ! -f "$OPENCODE_SKILL_DIR/SKILL.md" ]; then
+    cat << 'EOF' > "$OPENCODE_SKILL_DIR/SKILL.md"
 # Skill: Interactive Diff & Chunk Review via Hunk
 
 This workflow instructs OpenCode on how to inspect staged/unstaged changes using `hunk`.
@@ -122,6 +123,9 @@ This workflow instructs OpenCode on how to inspect staged/unstaged changes using
 3. **Editor Preference:**
    - Default terminal editor is `micro`. Never spawn `vim` or `nano` subshells.
 EOF
+else
+    echo -e "${YELLOW}  - Hunk review skill already exists. Skipping.${NC}"
+fi
 
 # 7. Create Onboarding Markdown Guide
 GUIDE_PATH="$HOME/.config/herdr/onboarding.md"

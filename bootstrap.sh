@@ -23,7 +23,7 @@ fi
 echo -e "${BLUE}==> Checking and installing TUI tools...${NC}"
 
 TOOLS_TO_BREW=()
-for tool in micro yazi lazygit atuin-sh node; do
+for tool in micro yazi lazygit atuin node; do
     if ! is_installed "$tool"; then
         TOOLS_TO_BREW+=("$tool")
     else

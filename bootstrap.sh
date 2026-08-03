@@ -128,53 +128,97 @@ GUIDE_PATH="$HOME/.config/herdr/onboarding.md"
 mkdir -p "$(dirname "$GUIDE_PATH")"
 
 cat << 'EOF' > "$GUIDE_PATH"
-# 🚀 Terminal Environment Cheatsheet
+# 🚀 Terminal IDE — Welcome
 
-Welcome to your environment setup. All tools are installed natively on your host machine.
-
----
-
-## 🛠️ Installed CLI Tools
-
-| Tool | Role | Command / Keybinding |
-| :--- | :--- | :--- |
-| **Micro** | Default Text Editor | `micro <file>` (Ctrl+S Save, Ctrl+Q Quit) |
-| **Yazi** | TUI File Manager | `yazi` |
-| **LazyGit** | Terminal Git Client | `lazygit` |
-| **Atuin** | History Search | **Up Arrow** (scoped to local directory) |
-| **Hunk** | Diff & Patch Review | `hunk` |
-| **OpenCode** | AI Coding Agent | `opencode` |
+Your terminal IDE is ready. All tools installed natively via Homebrew.
 
 ---
 
-## 🔑 AI Token Keychain Configuration
+## 🛠️ Tools & Key Shortcuts
 
-Set up platform secrets (OpenAI, Anthropic) using your OS keychain:
+### micro — Text Editor
+Syntax highlighting, intuitive Ctrl shortcuts. Your default `$EDITOR`.
 
-### macOS (Native Keychain)
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+s` / `Ctrl+q` | Save / Quit |
+| `Ctrl+f` | Find |
+| `Ctrl+z` / `Ctrl+y` | Undo / Redo |
+| `Ctrl+g` | Go to line |
+| `Ctrl+k` | Cut line |
+
+### yazi — File Manager
+Fast file browser with previews (images, PDFs, archives). Vim-like navigation.
+
+| Shortcut | Action |
+|----------|--------|
+| `h` / `l` | Parent / enter dir |
+| `j` / `k` | Down / up |
+| `Enter` | Open file (in micro) |
+| `/` | Fuzzy search |
+| `.` | Toggle hidden |
+| `q` | Quit |
+
+### lazygit — Git TUI
+Visual staging, commits, push/pull, interactive rebase.
+
+| Shortcut | Action |
+|----------|--------|
+| `Space` | Stage / unstage |
+| `c` | Commit |
+| `P` / `p` | Push / Pull |
+| `?` | Help |
+| `q` | Quit |
+
+### hunk — Interactive Diffs
+Granular hunk-by-hunk diff review and selective staging.
+
+| Command | Action |
+|---------|--------|
+| `hunk` | Review unstaged |
+| `hunk --cached` | Review staged |
+
+### atuin — Shell History
+Directory-scoped history search. **Up Arrow** finds commands from current dir.
+
+| Shortcut | Action |
+|----------|--------|
+| `Up Arrow` | Search (this dir) |
+| `Ctrl+r` | Search (global) |
+
+### opencode — AI Coding Agent
+Terminal-native AI assistant. Run `opencode` to start.
+
+### herdr — Workspace Orchestrator
+Markdown reader & workflow coordinator. Run `herdr <file>` to view docs.
+
+---
+
+## 🔑 AI Token Keychain
+
+Set up API keys using your OS keychain:
+
+**macOS:**
 ```bash
-# Add key to Keychain:
-security add-generic-password -a "$USER" -s "OPENAI_API_KEY" -w "your-api-key"
-
-# Read in .zshrc:
+security add-generic-password -a "$USER" -s "OPENAI_API_KEY" -w "your-key"
+# In .zshrc:
 export OPENAI_API_KEY=$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)
 ```
 
-### Linux (Secret Tool)
+**Linux:**
 ```bash
-# Store key:
 secret-tool store --name="OpenAI Key" service openai username "$USER"
-
-# Retrieve in shell:
+# In shell:
 export OPENAI_API_KEY=$(secret-tool lookup service openai username "$USER")
 ```
 
 ---
 
-## 🤖 OpenCode Skills Active
-- **Hunk Workflow**: `~/.config/opencode/skills/hunk_review.md`
+## 📚 Full Guide
 
-*Press `q` or `Ctrl+C` to close Herdr when finished.*
+`herdr ~/.config/herdr/TERMINAL_IDE_SETUP.md`
+
+*Press `q` to close.*
 EOF
 
 SETUP_GUIDE="$HOME/.config/herdr/TERMINAL_IDE_SETUP.md"

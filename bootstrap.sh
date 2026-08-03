@@ -54,12 +54,12 @@ done
 # Install hunk and herdr via Cargo if missing
 if ! is_installed hunk; then
     echo -e "${BLUE}==> Installing hunk via Cargo...${NC}"
-    cargo install --git https://github.com/modem-dev/hunk
+    cargo install --git https://github.com/modem-dev/hunk --tag v0.17.7 || true
 fi
 
 if ! is_installed herdr; then
     echo -e "${BLUE}==> Installing herdr via Cargo...${NC}"
-    cargo install --git https://github.com/herdrdev/herdr || true
+    cargo install --git https://github.com/herdrdev/herdr --tag v0.7.5 || true
 fi
 
 # 4. OpenCode Agent Setup

@@ -11,7 +11,7 @@ A reliable bootstrap script to quickly replicate a terminal-native, keyboard-dri
 | **[LazyGit](https://github.com/jesseduffield/lazygit)** | Terminal UI for Git commands | Native installation |
 | **[Atuin](https://github.com/atuinsh/atuin)** | Magical shell history | `Up Arrow` bound strictly to **directory-scoped** history search |
 | **[Hunk](https://github.com/modem-dev/hunk)** | Interactive diff & patch tool | Compiled & installed via Rust toolchain |
-| **[Herdr](https://github.com/your-org/herdr)** | Markdown TUI reader / workflow orchestrator | Auto-launches onboarding cheatsheet post-install |
+| **[Herdr](https://github.com/herdrdev/herdr)** | Markdown TUI reader / workflow orchestrator | Auto-launches onboarding cheatsheet post-install |
 | **[OpenCode](https://github.com/opencode-ai/opencode)** | AI Coding Agent | Provisioned with custom `hunk` review skill |
 
 ---
@@ -21,8 +21,8 @@ A reliable bootstrap script to quickly replicate a terminal-native, keyboard-dri
 Run the following command in your terminal to clone and bootstrap your new machine:
 
 ```bash
-git clone https://github.com/your-username/dotfiles-bootstrap.git
-cd dotfiles-bootstrap
+git clone https://github.com/ivan-lyutskanov/terminal-bootstrap.git
+cd terminal-bootstrap
 chmod +x bootstrap.sh
 ./bootstrap.sh
 ```
@@ -30,7 +30,7 @@ chmod +x bootstrap.sh
 Or execute it directly via curl:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/your-username/dotfiles-bootstrap/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ivan-lyutskanov/terminal-bootstrap/master/bootstrap.sh | bash
 ```
 
 ---

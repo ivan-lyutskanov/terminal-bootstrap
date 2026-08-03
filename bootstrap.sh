@@ -23,7 +23,7 @@ fi
 echo -e "${BLUE}==> Checking and installing TUI tools...${NC}"
 
 TOOLS_TO_BREW=()
-for tool in micro yazi lazygit atuin node; do
+for tool in micro yazi lazygit atuin-sh node; do
     if ! is_installed "$tool"; then
         TOOLS_TO_BREW+=("$tool")
     else
@@ -51,7 +51,7 @@ fi
 
 if ! is_installed herdr; then
     echo -e "${BLUE}==> Installing herdr via Cargo...${NC}"
-    cargo install --git https://github.com/your-org/herdr || true
+    cargo install --git https://github.com/herdrdev/herdr || true
 fi
 
 # 4. OpenCode Agent Setup
@@ -83,7 +83,7 @@ fi
 mkdir -p "$HOME/.config/atuin"
 cat << 'EOF' > "$HOME/.config/atuin/config.toml"
 search_mode = "prefix"
-filter_mode_shell_up_key_binding = "directory"
+up_key_dir_scoped = true
 style = "compact"
 inline_height = 20
 EOF

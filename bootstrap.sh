@@ -41,15 +41,15 @@ cargo_path=$(command -v cargo 2>/dev/null || brew --prefix rustup/bin/cargo 2>/d
 if [ -z "$cargo_path" ]; then
     echo -e "${BLUE}==> Installing Rust toolchain (required for hunk/herdr)...${NC}"
     brew install rust
-    # Ensure cargo is in PATH after fresh install
-    export PATH="$(brew --prefix rust)/bin:$PATH"
-else
-    # Existing rustup - add to PATH if needed
-    rustup_bin=$(brew --prefix rustup/bin 2>/dev/null)
-    if [ -n "$rustup_bin" ]; then
-        export PATH="$rustup_bin:$PATH"
-    fi
 fi
+
+# Ensure cargo is in PATH - try multiple possible locations
+for p in "$(brew --prefix rust)/bin" "$(brew --prefix rustup)/bin" "$HOME/.cargo/bin"; do
+    if [ -x "$p/cargo" ]; then
+        export PATH="$p:$PATH"
+        break
+    fi
+done
 
 # Install hunk and herdr via Cargo if missing
 if ! is_installed hunk; then

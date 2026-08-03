@@ -4,6 +4,20 @@ A lightweight, terminal-native IDE: **micro** (editor), **yazi** (files), **lazy
 
 ---
 
+## herdr — Workspace Orchestrator
+
+Markdown TUI reader and workflow coordinator. Manages sessions, renders docs/cheatsheets, and launches the right tool at the right time.
+
+| Command / Key | Action |
+|---------------|--------|
+| `herdr <file>` | Open markdown file |
+| `herdr --cheatsheet <file>` | Open in cheatsheet mode |
+| `Arrow keys` / `h/j/k/l` | Navigate |
+| `q` / `Esc` | Quit |
+| `?` | Help |
+
+---
+
 ## micro — Text Editor
 
 Modern terminal editor with syntax highlighting for 50+ languages. Intuitive Ctrl-based shortcuts (no vim learning curve). Set as your default `$EDITOR` so yazi and lazygit open files in it.
@@ -66,6 +80,16 @@ Visual Git interface: stage hunks, craft commits, push/pull, interactive rebase 
 
 ---
 
+## opencode — AI Coding Agent
+
+Terminal-native AI coding assistant. Launches an interactive session for code generation, refactoring, and Q&A.
+
+| Command | Action |
+|---------|--------|
+| `opencode` | Launch interactive session |
+
+---
+
 ## hunk — Interactive Diff & Patch
 
 Granular diff reviewer: inspect changes hunk-by-hunk, stage selectively, generate patches. Pairs with lazygit for detailed code review before committing.
@@ -94,30 +118,6 @@ SQLite-backed shell history with directory-scoped search. Up Arrow finds command
 
 ---
 
-## opencode — AI Coding Agent
-
-Terminal-native AI coding assistant. Launches an interactive session for code generation, refactoring, and Q&A.
-
-| Command | Action |
-|---------|--------|
-| `opencode` | Launch interactive session |
-
----
-
-## herdr — Workspace Orchestrator
-
-Markdown TUI reader and workflow coordinator. Manages sessions, renders docs/cheatsheets, and launches the right tool at the right time.
-
-| Command / Key | Action |
-|---------------|--------|
-| `herdr <file>` | Open markdown file |
-| `herdr --cheatsheet <file>` | Open in cheatsheet mode |
-| `Arrow keys` / `h/j/k/l` | Navigate |
-| `q` / `Esc` | Quit |
-| `?` | Help |
-
----
-
 ## Quick Reference
 
 | Task | Command |
@@ -127,7 +127,7 @@ Markdown TUI reader and workflow coordinator. Manages sessions, renders docs/che
 | Browse files | `yazi` |
 | Edit a file | `micro <file>` |
 | Git workflow | `lazygit` |
-| Review diffs | `hunk` |
+| brief you split pane and use opencode to check on comments via the skill | `hunk` |
 | AI assistance | `opencode` |
 | Set default editor | `export EDITOR=micro` (already in `~/.zshrc`) |
 

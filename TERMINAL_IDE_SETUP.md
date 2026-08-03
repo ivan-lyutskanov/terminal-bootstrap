@@ -127,9 +127,8 @@ SQLite-backed shell history with directory-scoped search. Up Arrow finds command
 | Browse files | `yazi` |
 | Edit a file | `micro <file>` |
 | Git workflow | `lazygit` |
-| brief you split pane and use opencode to check on comments via the skill | `hunk` |
+| Interactive diff review; opencode uses hunk skill to analyze changes | `hunk` |
 | AI assistance | `opencode` |
-| Set default editor | `export EDITOR=micro` (already in `~/.zshrc`) |
 
 ---
 

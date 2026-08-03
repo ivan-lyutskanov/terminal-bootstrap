@@ -106,6 +106,11 @@ mkdir -p "$OPENCODE_SKILL_DIR"
 
 if [ ! -f "$OPENCODE_SKILL_DIR/SKILL.md" ]; then
     cat << 'EOF' > "$OPENCODE_SKILL_DIR/SKILL.md"
+---
+name: hunk-review
+description: Use this skill to review code changes interactively using hunk for granular diff inspection and selective staging.
+---
+
 # Skill: Interactive Diff & Chunk Review via Hunk
 
 This workflow instructs OpenCode on how to inspect staged/unstaged changes using `hunk`.

@@ -36,11 +36,19 @@ if [ ${#TOOLS_TO_BREW[@]} -ne 0 ]; then
 fi
 
 # 3. Rust Toolchain (required to build hunk & herdr)
-if ! is_installed cargo; then
+cargo_path=$(command -v cargo 2>/dev/null || brew --prefix rustup/bin/cargo 2>/dev/null || echo "")
+
+if [ -z "$cargo_path" ]; then
     echo -e "${BLUE}==> Installing Rust toolchain (required for hunk/herdr)...${NC}"
     brew install rust
-    # Ensure cargo is in PATH
+    # Ensure cargo is in PATH after fresh install
     export PATH="$(brew --prefix rust)/bin:$PATH"
+else
+    # Existing rustup - add to PATH if needed
+    rustup_bin=$(brew --prefix rustup/bin 2>/dev/null)
+    if [ -n "$rustup_bin" ]; then
+        export PATH="$rustup_bin:$PATH"
+    fi
 fi
 
 # Install hunk and herdr via Cargo if missing

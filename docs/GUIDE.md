@@ -125,10 +125,10 @@ is a server that outlives your terminal, so closing the window or dropping an SS
 connection leaves everything exactly as it was — run `herdr` again and you are back in
 it. `Ctrl+b` then `q` detaches on purpose.
 
-`Ctrl+b` then `v` splits the pane you are in; `Ctrl+b` then `h` / `j` / `k` / `l` moves
-focus between panes — arrow keys are not bound in prefix mode, so the vim keys are the
-only ones here. Splits are also scriptable, which is how `hunk-review-pane` puts the
-diff where it does:
+`Ctrl+b` then `v` splits the pane you are in; `Ctrl+b` then an arrow key moves focus
+between panes. herdr itself binds only `h` / `j` / `k` / `l` there; the arrows are added
+beside them by this repo, and both stay live. Splits are also scriptable, which is how
+`hunk-review-pane` puts the diff where it does:
 
 ```bash
 herdr pane split --pane "$HERDR_PANE_ID" --direction right --ratio 0.5 --cwd "$PWD" --no-focus

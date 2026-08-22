@@ -5,9 +5,10 @@ compose well. **herdr** holds the panes and keeps them alive, **hunk** shows a d
 can annotate, **opencode** is the agent that reads those annotations, **lazygit** does
 the staging and committing, **yazi** browses, **micro** edits, and **atuin** remembers
 what you typed. There is no framework here — the glue is a few environment variables in
-`shell/init.sh` and one small script. The single most important line of that glue is
-`EDITOR=micro`: yazi, lazygit and hunk all hand files to `$EDITOR`, so "open this" means
-the same thing everywhere. What follows is what the pieces are actually for.
+`shell/init.sh` and one small script. The single most important piece of that glue is
+`$EDITOR`: yazi, lazygit and hunk all hand files to it, so "open this" means the same
+thing everywhere. It defaults to micro, and defers to an editor you have already set.
+What follows is what the pieces are actually for.
 
 ---
 
@@ -78,8 +79,8 @@ yazi
 ```
 
 `↑` / `↓` move, `→` enters a directory and `←` goes back up, `.` toggles hidden files.
-`Enter` opens the file — in micro, because `$EDITOR` is set. Save with `Ctrl+s`, quit
-with `Ctrl+q`, and you are back in yazi where you left off.
+`Enter` opens the file — in micro, because that is what `$EDITOR` points at. Save with
+`Ctrl+s`, quit with `Ctrl+q`, and you are back in yazi where you left off.
 
 Then commit:
 
@@ -192,9 +193,10 @@ Docs: <https://herdr.dev>. Press `Ctrl+b` then `?` in the app for the full keyma
 ### micro
 
 A terminal text editor with the shortcuts you already know from every GUI editor, so
-there is no modal learning curve in the middle of a workflow. Set here as `$EDITOR` and
-`$VISUAL` and aliased to `vim`, which is what makes yazi, lazygit and hunk all open the
-same thing.
+there is no modal learning curve in the middle of a workflow. Set here as the default
+`$EDITOR` and `$VISUAL`, which is what makes yazi, lazygit and hunk all open the same
+thing. If you already have an editor of your own, that is what stays set and all three
+follow it instead.
 
 `Ctrl+s` save · `Ctrl+q` quit · `Ctrl+f` find · `Ctrl+z` / `Ctrl+y` undo / redo ·
 `Ctrl+e` opens the command bar (`goto 42` to jump to a line).

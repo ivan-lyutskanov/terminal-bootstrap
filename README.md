@@ -14,7 +14,7 @@ to support.
 
 | Tool | What it is | What this repo does with it |
 | :--- | :--- | :--- |
-| **[micro](https://micro-editor.github.io/)** | Terminal text editor with the `Ctrl` shortcuts you already know | Set as `$EDITOR` and `$VISUAL`, aliased to `vim` — this is the glue |
+| **[micro](https://micro-editor.github.io/)** | Terminal text editor with the `Ctrl` shortcuts you already know | Set as the default `$EDITOR` and `$VISUAL`, this is the glue — an editor you already set is left alone |
 | **[yazi](https://github.com/sxyazi/yazi)** | Fast TUI file manager | `Enter` on a file hands it to `$EDITOR` |
 | **[lazygit](https://github.com/jesseduffield/lazygit)** | Git TUI, and the only tool here that stages anything | `e` opens the file in `$EDITOR`; `C` writes the commit message there |
 | **[atuin](https://docs.atuin.sh)** | SQLite-backed shell history | Up Arrow scoped to the current directory via `filter_mode_shell_up_key_binding` |

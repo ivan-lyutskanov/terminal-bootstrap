@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Absolute path to this clone. Everything the installer writes stays inside it,
+# so there is nothing to copy into ~/.config and nothing to go stale in two
+# places. Resolving from BASH_SOURCE means any clone location works.
+TB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+
+if [ ! -f "$TB_ROOT/shell/init.sh" ]; then
+    echo "This installer runs from a clone, not from a pipe." >&2
+    echo "" >&2
+    echo "  git clone --depth 1 https://github.com/ivan-lyutskanov/terminal-bootstrap.git ~/.terminal-bootstrap" >&2
+    echo "  ~/.terminal-bootstrap/bootstrap.sh" >&2
+    exit 1
+fi
+
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[0;33m'
@@ -102,142 +115,13 @@ if ! grep -q "atuin init" "$SHELL_RC" 2>/dev/null; then
     fi
 fi
 
-# 6. Configure OpenCode Skill: Hunk Agent Workflow
-echo -e "${BLUE}==> Configuring OpenCode skill for Hunk review workflow...${NC}"
-OPENCODE_SKILL_DIR="$HOME/.config/opencode/skills/hunk-review"
-mkdir -p "$OPENCODE_SKILL_DIR"
-
-if [ ! -f "$OPENCODE_SKILL_DIR/SKILL.md" ]; then
-    cat << 'EOF' > "$OPENCODE_SKILL_DIR/SKILL.md"
----
-name: hunk-review
-description: Use this skill to review code changes interactively using hunk for granular diff inspection and selective staging.
----
-
-# Skill: Interactive Diff & Chunk Review via Hunk
-
-This workflow instructs OpenCode on how to inspect staged/unstaged changes using `hunk`.
-
-## Workflow Guidelines
-1. **Interactive Inspection:**
-   - Run `hunk` to launch the TUI for reviewing granular code diffs.
-   - Use `hunk diff` or `hunk patch` to review specific hunks before making modifications or committing.
-
-2. **Patch & Staging Strategy:**
-   - Do not stage entire files blindly with `git add .`.
-   - Use `hunk` interactive staging to split changes into logical units.
-   - When summarizing edits to the user, group changes by the specific hunks/patches modified.
-
-3. **Editor Preference:**
-   - Default terminal editor is `micro`. Never spawn `vim` or `nano` subshells.
-EOF
-else
-    echo -e "${YELLOW}  - Hunk review skill already exists. Skipping.${NC}"
+echo -e "${GREEN}==> Setup complete.${NC}"
+if [ -n "$FAILED_TOOLS" ]; then
+    echo -e "${YELLOW}    These tools failed to install:${FAILED_TOOLS}${NC}"
+    echo -e "${YELLOW}    Re-run this script to retry them.${NC}"
 fi
-
-# 7. Create Onboarding Markdown Guide
-GUIDE_PATH="$HOME/.config/herdr/onboarding.md"
-mkdir -p "$(dirname "$GUIDE_PATH")"
-
-cat << 'EOF' > "$GUIDE_PATH"
-# 🚀 Terminal IDE — Welcome
-
-Your terminal IDE is ready. All tools installed natively via Homebrew.
-
----
-
-## 🛠️ Tools & Key Shortcuts
-
-### micro — Text Editor
-Syntax highlighting, intuitive Ctrl shortcuts. Your default `$EDITOR`.
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+s` / `Ctrl+q` | Save / Quit |
-| `Ctrl+f` | Find |
-| `Ctrl+z` / `Ctrl+y` | Undo / Redo |
-| `Ctrl+g` | Go to line |
-| `Ctrl+k` | Cut line |
-
-### yazi — File Manager
-Fast file browser with previews (images, PDFs, archives). Vim-like navigation.
-
-| Shortcut | Action |
-|----------|--------|
-| `h` / `l` | Parent / enter dir |
-| `j` / `k` | Down / up |
-| `Enter` | Open file (in micro) |
-| `/` | Fuzzy search |
-| `.` | Toggle hidden |
-| `q` | Quit |
-
-### lazygit — Git TUI
-Visual staging, commits, push/pull, interactive rebase.
-
-| Shortcut | Action |
-|----------|--------|
-| `Space` | Stage / unstage |
-| `c` | Commit |
-| `P` / `p` | Push / Pull |
-| `?` | Help |
-| `q` | Quit |
-
-### hunk — Interactive Diffs
-Granular hunk-by-hunk diff review and selective staging.
-
-| Command | Action |
-|---------|--------|
-| `hunk` | Review unstaged |
-| `hunk --cached` | Review staged |
-
-### atuin — Shell History
-Directory-scoped history search. **Up Arrow** finds commands from current dir.
-
-| Shortcut | Action |
-|----------|--------|
-| `Up Arrow` | Search (this dir) |
-| `Ctrl+r` | Search (global) |
-
-### opencode — AI Coding Agent
-Terminal-native AI assistant. Run `opencode` to start.
-
-### herdr — Workspace Orchestrator
-Markdown reader & workflow coordinator. Run `herdr <file>` to view docs.
-
----
-
-## 🔑 AI Token Keychain
-
-Set up API keys using your OS keychain:
-
-**macOS:**
-```bash
-security add-generic-password -a "$USER" -s "OPENAI_API_KEY" -w "your-key"
-# In .zshrc:
-export OPENAI_API_KEY=$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)
-```
-
-**Linux:**
-```bash
-secret-tool store --name="OpenAI Key" service openai username "$USER"
-# In shell:
-export OPENAI_API_KEY=$(secret-tool lookup service openai username "$USER")
-```
-
----
-
-## 📚 Full Guide
-
-`herdr ~/.config/herdr/TERMINAL_IDE_SETUP.md`
-
-*Press `q` to close.*
-EOF
-
-SETUP_GUIDE="$HOME/.config/herdr/TERMINAL_IDE_SETUP.md"
-cp "$(dirname "$0")/TERMINAL_IDE_SETUP.md" "$SETUP_GUIDE" 2>/dev/null || true
-
-echo -e "${GREEN}==> Setup completed successfully!${NC}"
 echo -e ""
-echo -e "${BLUE}📚 Complete Setup Guide:${NC} ${YELLOW}$SETUP_GUIDE${NC}"
-echo -e "${BLUE}🔗 Or view online:${NC} https://github.com/ivan-lyutskanov/terminal-bootstrap/blob/master/TERMINAL_IDE_SETUP.md"
+echo -e "  Restart your shell, or: ${YELLOW}source $SHELL_RC${NC}"
+echo -e "  Guide: ${YELLOW}$TB_ROOT/docs/GUIDE.md${NC}"
+echo -e "  Repo:  ${YELLOW}https://github.com/ivan-lyutskanov/terminal-bootstrap${NC}"
 echo -e ""

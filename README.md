@@ -18,20 +18,14 @@ A reliable bootstrap script to quickly replicate a terminal-native, keyboard-dri
 
 ## 🚀 Quick Start
 
-Run the following command in your terminal to clone and bootstrap your new machine:
-
 ```bash
-git clone https://github.com/ivan-lyutskanov/terminal-bootstrap.git
-cd terminal-bootstrap
-chmod +x bootstrap.sh
-./bootstrap.sh
+git clone --depth 1 https://github.com/ivan-lyutskanov/terminal-bootstrap.git ~/.terminal-bootstrap
+~/.terminal-bootstrap/bootstrap.sh
 ```
 
-Or execute it directly via curl:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ivan-lyutskanov/terminal-bootstrap/master/bootstrap.sh | bash
-```
+The clone is the install location — configuration is sourced from it, so updating is
+`git -C ~/.terminal-bootstrap pull` and uninstalling is removing one line from your
+`~/.zshrc`. Any clone path works; `~/.terminal-bootstrap` is just the convention.
 
 ---
 

@@ -46,18 +46,21 @@ brew update
 # 3. Core TUI Tools Installation
 echo -e "${BLUE}==> Checking and installing TUI tools...${NC}"
 
-TOOLS_TO_BREW=()
+FAILED_TOOLS=""
 for tool in micro yazi lazygit atuin node herdr hunk opencode; do
-    if ! is_installed "$tool"; then
-        TOOLS_TO_BREW+=("$tool")
-    else
+    if is_installed "$tool"; then
         echo -e "${YELLOW}  - $tool is already installed. Skipping.${NC}"
+        continue
+    fi
+    # Installed one at a time so a single unavailable formula does not abort
+    # the rest of setup. Failures are collected and reported at the end.
+    if brew install "$tool"; then
+        echo -e "${GREEN}  - installed $tool${NC}"
+    else
+        echo -e "${YELLOW}  - FAILED to install $tool (continuing)${NC}"
+        FAILED_TOOLS="$FAILED_TOOLS $tool"
     fi
 done
-
-if [ ${#TOOLS_TO_BREW[@]} -ne 0 ]; then
-    brew install "${TOOLS_TO_BREW[@]}"
-fi
 
 # 4. Set Micro as Default Editor
 if ! grep -q 'EDITOR="micro"' "$SHELL_RC" 2>/dev/null; then

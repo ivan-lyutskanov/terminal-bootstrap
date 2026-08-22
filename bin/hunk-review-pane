@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
-# Open the current diff in a hunk TUI beside the calling pane.
+# Open the current diff in a hunk TUI beside the pane this runs in.
 #
 # herdr owns the pane, hunk owns the review. This only wires them together:
-# split right, launch `hunk diff` there, and confirm hunk registered a session
-# so the caller can immediately drive it with `hunk session ...`.
+# split right off the caller's own pane, launch `hunk diff` there, and confirm
+# hunk registered a session so the caller can immediately drive it with
+# `hunk session ...`.
 set -euo pipefail
 
 die() { printf 'hunk-review-pane: %s\n' "$1" >&2; exit 1; }
@@ -15,15 +16,26 @@ command -v hunk  >/dev/null 2>&1 || die "hunk not found on PATH."
 REPO=$(git rev-parse --show-toplevel 2>/dev/null) \
     || die "not inside a git repository."
 
-herdr pane current --current >/dev/null 2>&1 \
+# herdr exports HERDR_PANE_ID into every pane it starts, so it is the only
+# thing that identifies *this* caller. `herdr pane current` would answer with
+# whichever pane is focused, which is not the same pane whenever the agent runs
+# in the background — and answers at all outside herdr, so it cannot guard this.
+[ -n "${HERDR_PANE_ID:-}" ] \
     || die "not running inside herdr. Start herdr, then run your agent in a pane."
+
+# A second session on the same repo makes every `--repo` selector ambiguous
+# ("Multiple active sessions match repoRoot ..."), which would break the review
+# loop this script exists to set up. Refuse rather than create that state.
+if hunk session get --repo "$REPO" >/dev/null 2>&1; then
+    die "a hunk session is already live for $REPO. Drive that one with \`hunk session ...\`, or close it and run this again."
+fi
 
 RATIO="${1:-0.5}"
 
 # herdr replies with a JSON envelope carrying exactly one "pane_id", at
 # .result.pane.pane_id. Extracted with sed to avoid adding a JSON dependency.
-SPLIT_OUT=$(herdr pane split --current --direction right --ratio "$RATIO" \
-                             --cwd "$REPO" --no-focus)
+SPLIT_OUT=$(herdr pane split --pane "$HERDR_PANE_ID" --direction right \
+                             --ratio "$RATIO" --cwd "$REPO" --no-focus)
 PANE=$(printf '%s\n' "$SPLIT_OUT" | sed -n 's/.*"pane_id":"\([^"]*\)".*/\1/p')
 
 case "$PANE" in
@@ -31,12 +43,22 @@ case "$PANE" in
     *) die "could not read a pane id from: $SPLIT_OUT" ;;
 esac
 
+# From here on the pane exists, so every exit that is not the success path has
+# to take it back down: `herdr pane run` failing, the poll timing out, or the
+# caller interrupting. Cleared just before the successful exit. The signal traps
+# only force an exit — a handler that merely closed the pane would return into
+# the poll and keep running for the rest of the 10s with its pane already gone.
+trap 'herdr pane close "$PANE" >/dev/null 2>&1 || true' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 herdr pane run "$PANE" 'hunk diff' >/dev/null
 
 # hunk registers with its loopback daemon a moment after launch.
 n=0
 while [ "$n" -lt 20 ]; do
     if hunk session get --repo "$REPO" --json >/dev/null 2>&1; then
+        trap - EXIT INT TERM
         printf 'pane_id=%s\nrepo=%s\n' "$PANE" "$REPO"
         exit 0
     fi
@@ -44,7 +66,6 @@ while [ "$n" -lt 20 ]; do
     n=$((n + 1))
 done
 
-herdr pane close "$PANE" >/dev/null 2>&1 || true
 die "hunk did not register a session for $REPO within 10s. If you are running
 inside an agent sandbox, loopback access to hunk's daemon may be blocked; retry
 with network permission rather than exposing the daemon."

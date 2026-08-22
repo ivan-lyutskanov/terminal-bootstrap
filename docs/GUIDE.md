@@ -215,6 +215,11 @@ is finding the file — once you press `Enter`, micro takes over.
 `↑` / `↓` move · `←` / `→` up / into a directory · `Enter` open · `Space` select ·
 `.` toggle hidden files · `q` quit.
 
+`/` finds within the current directory and `n` steps through the matches; `f` filters
+the listing down to what matched. `s` searches by name across subdirectories and `S`
+searches their contents — those two shell out to `fd` and `ripgrep`, which is why
+both are in the Brewfile. `Ctrl+s` cancels a search that is still running.
+
 Docs: <https://github.com/sxyazi/yazi>. Press `~` or `F1` in the TUI for the full keymap.
 
 ### lazygit

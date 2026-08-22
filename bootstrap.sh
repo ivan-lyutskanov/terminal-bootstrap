@@ -145,22 +145,36 @@ echo -e "${BLUE}==> Installing review workflow...${NC}"
 # `ln -sfn` swaps an existing symlink atomically, which is what a re-run needs.
 # Against a real file or directory it does something else entirely: it links
 # *inside* the destination, producing ~/.local/bin/hunk-review-pane/hunk-review-pane
-# and leaving the stale copy in place, still shadowing us. Clear a non-symlink out
-# of the way first, and say so -- it is the only thing here that destroys anything.
+# and leaving the stale copy in place, still shadowing us. So a non-symlink has to
+# get out of the way -- moved to $3, never deleted: nothing here proves the thing
+# in the way is a leftover of ours rather than something you wrote by hand. If the
+# parking spot is taken too, touch neither and say so.
 relink() {
     if [ -e "$2" ] && [ ! -L "$2" ]; then
-        echo -e "${YELLOW}  - replacing existing $2 with a symlink${NC}"
-        rm -rf "$2"
+        if [ -e "$3" ]; then
+            echo -e "${YELLOW}  - $2 is in the way and $3 already exists; left both alone${NC}"
+            return 0
+        elif mv "$2" "$3" 2>/dev/null; then
+            echo -e "${YELLOW}  - moved $2 aside to $3${NC}"
+        else
+            echo -e "${YELLOW}  - $2 is in the way and could not be moved; left it alone${NC}"
+            return 0
+        fi
     fi
     ln -sfn "$1" "$2"
 }
 
 mkdir -p "$HOME/.local/bin"
-relink "$TB_ROOT/bin/hunk-review-pane" "$HOME/.local/bin/hunk-review-pane"
+relink "$TB_ROOT/bin/hunk-review-pane" "$HOME/.local/bin/hunk-review-pane" \
+       "$HOME/.local/bin/hunk-review-pane.disabled"
 
 SKILLS_DIR="$HOME/.config/opencode/skills"
 mkdir -p "$SKILLS_DIR"
-relink "$TB_ROOT/skills/hunk-review-pane" "$SKILLS_DIR/hunk-review-pane"
+# Parked one level above skills/, not beside it: opencode discovers a skill from
+# skills/<name>/SKILL.md, so a hunk-review-pane.disabled/ left inside skills/ would
+# still hold a live SKILL.md and come back as a duplicate. One level up is not scanned.
+relink "$TB_ROOT/skills/hunk-review-pane" "$SKILLS_DIR/hunk-review-pane" \
+       "$HOME/.config/opencode/hunk-review-pane.disabled"
 
 # hunk generates its own skill from source metadata, so symlink it rather than
 # writing a copy that would drift on the next hunk release.
@@ -178,7 +192,7 @@ if is_installed hunk; then
     fi
     if [ -n "$HUNK_SKILL" ] && [ -f "$HUNK_SKILL" ]; then
         mkdir -p "$SKILLS_DIR/hunk-review"
-        relink "$HUNK_SKILL" "$HUNK_SKILL_MD"
+        relink "$HUNK_SKILL" "$HUNK_SKILL_MD" "$HUNK_SKILL_MD.disabled"
         HUNK_SKILL_LINKED=1
     fi
 fi
@@ -193,7 +207,7 @@ STALE_HUNK_SKILL=0
 if [ "$HUNK_SKILL_LINKED" = 0 ] && [ -f "$HUNK_SKILL_MD" ] && [ ! -L "$HUNK_SKILL_MD" ]; then
     # Guarded, not bare: under `set -e` a failed mv would abort the installer here,
     # skipping the herdr step and the entire summary — including the notice below.
-    if mv "$HUNK_SKILL_MD" "$HUNK_SKILL_MD.disabled" 2>/dev/null; then
+    if [ ! -e "$HUNK_SKILL_MD.disabled" ] && mv "$HUNK_SKILL_MD" "$HUNK_SKILL_MD.disabled" 2>/dev/null; then
         STALE_HUNK_SKILL=1
     else
         echo -e "${YELLOW}  - could not rename $HUNK_SKILL_MD; it may contain stale advice${NC}"

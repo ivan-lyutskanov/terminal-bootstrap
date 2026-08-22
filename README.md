@@ -1,46 +1,76 @@
 # Terminal Environment Bootstrap
 
-A reliable bootstrap script to quickly replicate a terminal-native, keyboard-driven development workstation on macOS or Linux.
+A terminal-native, keyboard-driven development workstation for macOS and Linux. Seven
+tools, installed and wired together so that an agent, a diff you can annotate and a git
+TUI are one workflow rather than three programs.
+
+The centrepiece is the review loop: your agent opens the diff in a pane beside itself,
+you leave notes on individual hunks, and it reads them back and addresses them.
+
+**[Read the guide](docs/GUIDE.md)** for that and the three other workflows this exists
+to support.
 
 ## 🛠️ What Gets Installed & Configured
 
-| Tool | Description | Configuration / Customization |
+| Tool | What it is | What this repo does with it |
 | :--- | :--- | :--- |
-| **[Micro](https://micro-editor.github.io/)** | Modern terminal text editor | Set as `$EDITOR` and `$VISUAL`, aliased to `vim` |
-| **[Yazi](https://github.com/sxyazi/yazi)** | Blazing fast TUI file manager | Native installation |
-| **[LazyGit](https://github.com/jesseduffield/lazygit)** | Terminal UI for Git commands | Native installation |
-| **[Atuin](https://github.com/atuinsh/atuin)** | Magical shell history | `Up Arrow` bound strictly to **directory-scoped** history search |
-| **[Hunk](https://github.com/modem-dev/hunk)** | Interactive diff & patch tool | Compiled & installed via Rust toolchain |
-| **[Herdr](https://github.com/herdrdev/herdr)** | Markdown TUI reader / workflow orchestrator | Auto-launches onboarding cheatsheet post-install |
-| **[OpenCode](https://github.com/opencode-ai/opencode)** | AI Coding Agent | Provisioned with custom `hunk` review skill |
+| **[micro](https://micro-editor.github.io/)** | Terminal text editor with the `Ctrl` shortcuts you already know | Set as the default `$EDITOR` and `$VISUAL`, this is the glue — an editor you already set is left alone |
+| **[yazi](https://github.com/sxyazi/yazi)** | Fast TUI file manager | `Enter` on a file hands it to `$EDITOR` |
+| **[lazygit](https://github.com/jesseduffield/lazygit)** | Git TUI, and the only tool here that stages anything | `e` opens the file in `$EDITOR`; `C` writes the commit message there |
+| **[atuin](https://docs.atuin.sh)** | SQLite-backed shell history | Up Arrow scoped to the current directory via `filter_mode_shell_up_key_binding` |
+| **[hunk](https://hunk.dev/docs)** | Review-first diff viewer for agent-authored changesets. It does not stage | Its own generated agent skill is symlinked into opencode |
+| **[herdr](https://herdr.dev)** | Terminal workspace manager for AI coding agents | Registered to report opencode's agent state in the pane UI; pane focus on `Ctrl+b` + arrow keys as well as `hjkl` |
+| **[opencode](https://github.com/anomalyco/opencode)** | Terminal AI coding agent | Given the `hunk-review-pane` skill |
+
+Plus `hunk-review-pane` — this repository's own command, symlinked onto your `PATH` at
+`~/.local/bin/hunk-review-pane`.
 
 ---
 
 ## 🚀 Quick Start
 
-Run the following command in your terminal to clone and bootstrap your new machine:
-
 ```bash
-git clone https://github.com/ivan-lyutskanov/terminal-bootstrap.git
-cd terminal-bootstrap
-chmod +x bootstrap.sh
-./bootstrap.sh
+git clone --depth 1 https://github.com/ivan-lyutskanov/terminal-bootstrap.git ~/.terminal-bootstrap
+~/.terminal-bootstrap/bootstrap.sh
 ```
 
-Or execute it directly via curl:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ivan-lyutskanov/terminal-bootstrap/master/bootstrap.sh | bash
-```
+The clone is the install location — configuration is sourced from it, so updating is
+`git -C ~/.terminal-bootstrap pull` and uninstalling is removing the
+`# terminal-bootstrap` block from your `~/.zshrc`. Any clone path works;
+`~/.terminal-bootstrap` is just the convention.
 
 ---
 
 ## ⚙️ How It Works
 
-1. **Reliability Check:** Checks whether tools (`brew`, `micro`, `yazi`, `lazygit`, `atuin`, `node`, `opencode`, `hunk`, `herdr`) are already installed on the system before attempting installation.
-2. **Environment Export:** Configures `~/.zshrc` or `~/.bashrc` with `export EDITOR="micro"` and binds the up-arrow key for Atuin directory-scoped search.
-3. **OpenCode Skill Setup:** Provisions `~/.config/opencode/skills/hunk_review.md` instructing OpenCode to use `hunk` for granular diff inspection and interactive staging.
-4. **Onboarding Launch:** Writes a cheatsheet to `~/.config/herdr/onboarding.md` and opens it in Herdr, providing instructions on setting up API key access tokens via macOS Keychain or Linux Secret Tool.
+1. **The review loop.** `hunk-review-pane` splits a pane off the one your agent is
+   running in, opens `hunk diff` there, and waits for hunk to register a live session.
+   The agent then reads your inline notes over hunk's local daemon and replies to them
+   in the same pane. Two skills are installed for it: this repo's, covering the notes,
+   and hunk's own generated one, symlinked rather than copied so it cannot drift.
+2. **One sourced file.** All shell configuration lives in `shell/init.sh` inside the
+   clone. `bootstrap.sh` writes a single guarded `source` line into a
+   `# terminal-bootstrap` block in your `~/.zshrc` (or `~/.bash_profile` on macOS bash,
+   `~/.bashrc` elsewhere). Later runs find that block by its marker, so moving the clone
+   and re-running repoints the block you already have rather than leaving a second one
+   behind it. Updating is `git pull`; uninstalling is deleting the block.
+3. **Tools from a Brewfile, installed one at a time.** The tool list is the `Brewfile`,
+   but each formula is installed in its own `brew install` so that one unavailable
+   package cannot abort the rest of setup. Anything that fails is reported at the end
+   and retried on the next run.
+4. **Directory-scoped history.** `~/.config/atuin/config.toml` gets
+   `filter_mode_shell_up_key_binding = "directory"`, so Up Arrow searches only what you
+   ran here while `Ctrl+r` still searches everything. This is only written when you do
+   not already have that file — an existing atuin config is never overwritten. When it
+   skips, the installer says so at the end, with the line to add yourself. atuin's own init keeps its keymaps; nothing is rebound by
+   hand.
+5. **Arrow keys for herdr panes.** `~/.config/herdr/config.toml` gets `Ctrl+b` + an
+   arrow key for pane focus, added *alongside* herdr's own `h` / `j` / `k` / `l` rather
+   than in place of it — each action is bound to a list of two keys. Nothing is
+   displaced: no herdr default binds an arrow behind the prefix. The block is only
+   appended to a config with no `[keys]` table of its own, and only after herdr itself
+   validates the result; otherwise the file is left untouched and the lines to add are
+   printed at the end.
 
 ---
 
@@ -49,31 +79,32 @@ curl -fsSL https://raw.githubusercontent.com/ivan-lyutskanov/terminal-bootstrap/
 To keep your API keys secure without hardcoding them in your shell:
 
 ### macOS
-```bash
-# Add your provider key(s) to Keychain - pick yours:
-security add-generic-password -a "$USER" -s "ANTHROPIC_API_KEY" -w "$ANTHROPIC_API_KEY"
-security add-generic-password -a "$USER" -s "OPENAI_API_KEY" -w "$OPENAI_API_KEY"
-security add-generic-password -a "$USER" -s "GOOGLE_API_KEY" -w "$GOOGLE_API_KEY"
 
-# Add to your shell rc - uncomment the providers you use:
-echo '# API Keys from Keychain' >> ~/.zshrc
-echo 'export ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s "ANTHROPIC_API_KEY" -w)' >> ~/.zshrc
-# echo 'export OPENAI_API_KEY=$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)' >> ~/.zshrc
-# echo 'export GOOGLE_API_KEY=$(security find-generic-password -a "$USER" -s "GOOGLE_API_KEY" -w)' >> ~/.zshrc
+Store the key. Omitting the value after `-w` makes `security` prompt for it, so the
+secret never lands in argv — and therefore never in your atuin history:
+
+```bash
+security add-generic-password -a "$USER" -s ANTHROPIC_API_KEY -w
 ```
+
+Read it back in your shell:
+
+```bash
+echo 'export ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s ANTHROPIC_API_KEY -w)' >> ~/.zshrc
+```
+
+Swap `ANTHROPIC_API_KEY` for `OPENAI_API_KEY` or `GOOGLE_API_KEY` as needed.
 
 ### Linux (`libsecret` / `secret-tool`)
+
+`secret-tool store` always prompts for the value — it never takes it as an argument:
+
 ```bash
-# Store your provider key(s):
-secret-tool store --name="Anthropic Key" service anthropic username "$USER"
-secret-tool store --name="OpenAI Key" service openai username "$USER"
-secret-tool store --name="Google Key" service google username "$USER"
-
-# Add to your shell rc:
-echo '# API Keys from secret-tool' >> ~/.zshrc
+secret-tool store --label="Anthropic Key" service anthropic username "$USER"
 echo 'export ANTHROPIC_API_KEY=$(secret-tool lookup service anthropic username "$USER")' >> ~/.zshrc
-# echo 'export OPENAI_API_KEY=$(secret-tool lookup service openai username "$USER")' >> ~/.zshrc
-# echo 'export GOOGLE_API_KEY=$(secret-tool lookup service google username "$USER")' >> ~/.zshrc
-
-Your OpenCode config will automatically pick up whichever key(s) you've configured.
 ```
+
+Note: this blocks on a locked keyring. On a headless or SSH session with no keyring
+daemon, set the variable another way rather than putting the lookup in your shell rc.
+
+Swap `anthropic` for `openai` or `google` in the `service` value of both commands, and `ANTHROPIC_API_KEY` for the matching variable name, as needed.

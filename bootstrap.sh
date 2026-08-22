@@ -26,9 +26,17 @@ is_installed() {
     command -v "$1" &> /dev/null
 }
 
-# Determine shell RC file early (needed for brew PATH persistence)
+# Determine shell RC file early (needed for the source-line append below).
+# macOS bash reads .bash_profile for login shells and never sources .bashrc
+# by default, so writing to .bashrc there would silently do nothing.
 SHELL_RC="$HOME/.zshrc"
-[[ "$SHELL" == *"/bash"* ]] && SHELL_RC="$HOME/.bashrc"
+if [[ "$SHELL" == *"/bash"* ]]; then
+    if [[ "$OSTYPE" == darwin* ]]; then
+        SHELL_RC="$HOME/.bash_profile"
+    else
+        SHELL_RC="$HOME/.bashrc"
+    fi
+fi
 
 # 1. Package Manager Setup
 if ! is_installed brew; then
@@ -39,14 +47,6 @@ if ! is_installed brew; then
     for BREW_BIN in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
         if [ -x "$BREW_BIN" ]; then
             eval "$("$BREW_BIN" shellenv)"
-            # Persist to shell RC so future sessions also find brew
-            if ! grep -q 'brew shellenv' "$SHELL_RC" 2>/dev/null; then
-                {
-                    echo ''
-                    echo '# Homebrew'
-                    echo "eval \"\$($BREW_BIN shellenv)\""
-                } >> "$SHELL_RC"
-            fi
             break
         fi
     done
@@ -75,18 +75,15 @@ for tool in micro yazi lazygit atuin node herdr hunk opencode; do
     fi
 done
 
-# 4. Set Micro as Default Editor
-if ! grep -q 'EDITOR="micro"' "$SHELL_RC" 2>/dev/null; then
-    echo -e "${BLUE}==> Configuring Micro as default editor in $SHELL_RC...${NC}"
+# 4. Wire the shell configuration in with a single sourced line.
+SOURCE_LINE="[ -f \"$TB_ROOT/shell/init.sh\" ] && . \"$TB_ROOT/shell/init.sh\""
+if ! grep -qF "$SOURCE_LINE" "$SHELL_RC" 2>/dev/null; then
+    echo -e "${BLUE}==> Adding terminal-bootstrap to $SHELL_RC...${NC}"
     {
-      echo ''
-      echo '# Custom Editor Settings'
-      echo 'export EDITOR="micro"'
-      echo 'export VISUAL="micro"'
-      echo 'alias vim="micro"'
+        echo ''
+        echo '# terminal-bootstrap'
+        echo "$SOURCE_LINE"
     } >> "$SHELL_RC"
-    export EDITOR="micro"
-    export VISUAL="micro"
 fi
 
 # 5. Atuin Directory-Scoped History Setup
@@ -100,19 +97,6 @@ filter_mode_shell_up_key_binding = "directory"
 style = "compact"
 inline_height = 20
 EOF
-fi
-
-if ! grep -q "atuin init" "$SHELL_RC" 2>/dev/null; then
-    echo -e "${BLUE}==> Wiring Atuin into shell environment...${NC}"
-    # Directory scoping comes from filter_mode_shell_up_key_binding in config.toml.
-    # Do NOT pass --disable-up-arrow and rebind manually: atuin's own init binds
-    # ^[[A and ^[OA across the emacs, viins and vicmd keymaps. Overriding it with a
-    # single bindkey loses application-mode arrows and every vi keymap binding.
-    if [[ "$SHELL" == *"/bash"* ]]; then
-        echo 'eval "$(atuin init bash)"' >> "$SHELL_RC"
-    else
-        echo 'eval "$(atuin init zsh)"' >> "$SHELL_RC"
-    fi
 fi
 
 echo -e "${GREEN}==> Setup complete.${NC}"

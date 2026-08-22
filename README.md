@@ -49,31 +49,30 @@ curl -fsSL https://raw.githubusercontent.com/ivan-lyutskanov/terminal-bootstrap/
 To keep your API keys secure without hardcoding them in your shell:
 
 ### macOS
-```bash
-# Add your provider key(s) to Keychain - pick yours:
-security add-generic-password -a "$USER" -s "ANTHROPIC_API_KEY" -w "$ANTHROPIC_API_KEY"
-security add-generic-password -a "$USER" -s "OPENAI_API_KEY" -w "$OPENAI_API_KEY"
-security add-generic-password -a "$USER" -s "GOOGLE_API_KEY" -w "$GOOGLE_API_KEY"
 
-# Add to your shell rc - uncomment the providers you use:
-echo '# API Keys from Keychain' >> ~/.zshrc
-echo 'export ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s "ANTHROPIC_API_KEY" -w)' >> ~/.zshrc
-# echo 'export OPENAI_API_KEY=$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)' >> ~/.zshrc
-# echo 'export GOOGLE_API_KEY=$(security find-generic-password -a "$USER" -s "GOOGLE_API_KEY" -w)' >> ~/.zshrc
+Store the key. Omitting the value after `-w` makes `security` prompt for it, so the
+secret never lands in argv — and therefore never in your atuin history:
+
+```bash
+security add-generic-password -a "$USER" -s ANTHROPIC_API_KEY -w
 ```
+
+Read it back in your shell:
+
+```bash
+echo 'export ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s ANTHROPIC_API_KEY -w)' >> ~/.zshrc
+```
+
+Swap `ANTHROPIC_API_KEY` for `OPENAI_API_KEY` or `GOOGLE_API_KEY` as needed.
 
 ### Linux (`libsecret` / `secret-tool`)
+
+`secret-tool store` always prompts for the value — it never takes it as an argument:
+
 ```bash
-# Store your provider key(s):
-secret-tool store --name="Anthropic Key" service anthropic username "$USER"
-secret-tool store --name="OpenAI Key" service openai username "$USER"
-secret-tool store --name="Google Key" service google username "$USER"
-
-# Add to your shell rc:
-echo '# API Keys from secret-tool' >> ~/.zshrc
+secret-tool store --label="Anthropic Key" service anthropic username "$USER"
 echo 'export ANTHROPIC_API_KEY=$(secret-tool lookup service anthropic username "$USER")' >> ~/.zshrc
-# echo 'export OPENAI_API_KEY=$(secret-tool lookup service openai username "$USER")' >> ~/.zshrc
-# echo 'export GOOGLE_API_KEY=$(secret-tool lookup service google username "$USER")' >> ~/.zshrc
-
-Your OpenCode config will automatically pick up whichever key(s) you've configured.
 ```
+
+Note: this blocks on a locked keyring. On a headless or SSH session with no keyring
+daemon, set the variable another way rather than putting the lookup in your shell rc.

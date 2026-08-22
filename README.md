@@ -1,18 +1,29 @@
 # Terminal Environment Bootstrap
 
-A reliable bootstrap script to quickly replicate a terminal-native, keyboard-driven development workstation on macOS or Linux.
+A terminal-native, keyboard-driven development workstation for macOS and Linux. Seven
+tools, installed and wired together so that an agent, a diff you can annotate and a git
+TUI are one workflow rather than three programs.
+
+The centrepiece is the review loop: your agent opens the diff in a pane beside itself,
+you leave notes on individual hunks, and it reads them back and addresses them.
+
+**[Read the guide](docs/GUIDE.md)** for that and the three other workflows this exists
+to support.
 
 ## 🛠️ What Gets Installed & Configured
 
-| Tool | Description | Configuration / Customization |
+| Tool | What it is | What this repo does with it |
 | :--- | :--- | :--- |
-| **[Micro](https://micro-editor.github.io/)** | Modern terminal text editor | Set as `$EDITOR` and `$VISUAL`, aliased to `vim` |
-| **[Yazi](https://github.com/sxyazi/yazi)** | Blazing fast TUI file manager | Native installation |
-| **[LazyGit](https://github.com/jesseduffield/lazygit)** | Terminal UI for Git commands | Native installation |
-| **[Atuin](https://github.com/atuinsh/atuin)** | Magical shell history | `Up Arrow` bound strictly to **directory-scoped** history search |
-| **[Hunk](https://github.com/modem-dev/hunk)** | Interactive diff & patch tool | Compiled & installed via Rust toolchain |
-| **[Herdr](https://github.com/herdrdev/herdr)** | Markdown TUI reader / workflow orchestrator | Auto-launches onboarding cheatsheet post-install |
-| **[OpenCode](https://github.com/opencode-ai/opencode)** | AI Coding Agent | Provisioned with custom `hunk` review skill |
+| **[micro](https://micro-editor.github.io/)** | Terminal text editor with the `Ctrl` shortcuts you already know | Set as `$EDITOR` and `$VISUAL`, aliased to `vim` — this is the glue |
+| **[yazi](https://github.com/sxyazi/yazi)** | Fast TUI file manager | `Enter` on a file hands it to `$EDITOR` |
+| **[lazygit](https://github.com/jesseduffield/lazygit)** | Git TUI, and the only tool here that stages anything | Uses `$EDITOR` for commit messages |
+| **[atuin](https://docs.atuin.sh)** | SQLite-backed shell history | Up Arrow scoped to the current directory via `filter_mode_shell_up_key_binding` |
+| **[hunk](https://hunk.dev/docs)** | Review-first diff viewer for agent-authored changesets. It does not stage | Its own generated agent skill is symlinked into opencode |
+| **[herdr](https://herdr.dev)** | Terminal workspace manager for AI coding agents | Registered to report opencode's agent state in the pane UI |
+| **[opencode](https://github.com/anomalyco/opencode)** | Terminal AI coding agent | Given the `hunk-review-pane` skill |
+
+Plus `hunk-review-pane` — this repository's own command, symlinked onto your `PATH` at
+`~/.local/bin/hunk-review-pane`.
 
 ---
 
@@ -31,10 +42,23 @@ The clone is the install location — configuration is sourced from it, so updat
 
 ## ⚙️ How It Works
 
-1. **Reliability Check:** Checks whether tools (`brew`, `micro`, `yazi`, `lazygit`, `atuin`, `node`, `opencode`, `hunk`, `herdr`) are already installed on the system before attempting installation.
-2. **Environment Export:** Configures `~/.zshrc` or `~/.bashrc` with `export EDITOR="micro"` and binds the up-arrow key for Atuin directory-scoped search.
-3. **OpenCode Skill Setup:** Provisions `~/.config/opencode/skills/hunk_review.md` instructing OpenCode to use `hunk` for granular diff inspection and interactive staging.
-4. **Onboarding Launch:** Writes a cheatsheet to `~/.config/herdr/onboarding.md` and opens it in Herdr, providing instructions on setting up API key access tokens via macOS Keychain or Linux Secret Tool.
+1. **The review loop.** `hunk-review-pane` splits a pane off the one your agent is
+   running in, opens `hunk diff` there, and waits for hunk to register a live session.
+   The agent then reads your inline notes over hunk's local daemon and replies to them
+   in the same pane. Two skills are installed for it: this repo's, covering the notes,
+   and hunk's own generated one, symlinked rather than copied so it cannot drift.
+2. **One sourced file.** All shell configuration lives in `shell/init.sh` inside the
+   clone. `bootstrap.sh` appends a single guarded `source` line to your `~/.zshrc` (or
+   `~/.bash_profile` on macOS bash, `~/.bashrc` elsewhere). Updating is `git pull`;
+   uninstalling is deleting that one line.
+3. **Tools from a Brewfile, installed one at a time.** The tool list is the `Brewfile`,
+   but each formula is installed in its own `brew install` so that one unavailable
+   package cannot abort the rest of setup. Anything that fails is reported at the end
+   and retried on the next run.
+4. **Directory-scoped history.** `~/.config/atuin/config.toml` gets
+   `filter_mode_shell_up_key_binding = "directory"`, so Up Arrow searches only what you
+   ran here while `Ctrl+r` still searches everything. atuin's own init keeps its
+   keymaps; nothing is rebound by hand.
 
 ---
 

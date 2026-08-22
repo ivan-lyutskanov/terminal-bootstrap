@@ -126,6 +126,31 @@ inline_height = 20
 EOF
 fi
 
+# 6. Review workflow: hunk-review-pane on PATH, plus agent skills.
+echo -e "${BLUE}==> Installing review workflow...${NC}"
+
+mkdir -p "$HOME/.local/bin"
+ln -sfn "$TB_ROOT/bin/hunk-review-pane" "$HOME/.local/bin/hunk-review-pane"
+
+SKILLS_DIR="$HOME/.config/opencode/skills"
+mkdir -p "$SKILLS_DIR"
+ln -sfn "$TB_ROOT/skills/hunk-review-pane" "$SKILLS_DIR/hunk-review-pane"
+
+# hunk generates its own skill from source metadata, so symlink it rather than
+# writing a copy that would drift on the next hunk release.
+if is_installed hunk; then
+    HUNK_SKILL="$(hunk skill path 2>/dev/null || true)"
+    if [ -n "$HUNK_SKILL" ] && [ -f "$HUNK_SKILL" ]; then
+        mkdir -p "$SKILLS_DIR/hunk-review"
+        ln -sfn "$HUNK_SKILL" "$SKILLS_DIR/hunk-review/SKILL.md"
+    fi
+fi
+
+# Let herdr track opencode's agent state in the pane UI.
+if is_installed herdr && is_installed opencode; then
+    herdr integration install opencode >/dev/null 2>&1 || true
+fi
+
 echo -e "${GREEN}==> Setup complete.${NC}"
 if [ -n "$FAILED_TOOLS" ]; then
     echo -e "${YELLOW}    These tools failed to install:${FAILED_TOOLS}${NC}"

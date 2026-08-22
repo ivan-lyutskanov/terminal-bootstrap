@@ -14,6 +14,12 @@ for _tb_brew in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linu
 done
 unset _tb_brew
 
+# terminal-bootstrap installs its own commands here.
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
 # Editor. yazi and lazygit both open $EDITOR, which is what makes the bundle
 # feel like one tool rather than four.
 export EDITOR="micro"

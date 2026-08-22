@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# Open the current diff in a hunk TUI beside the calling pane.
+#
+# herdr owns the pane, hunk owns the review. This only wires them together:
+# split right, launch `hunk diff` there, and confirm hunk registered a session
+# so the caller can immediately drive it with `hunk session ...`.
+set -euo pipefail
+
+die() { printf 'hunk-review-pane: %s\n' "$1" >&2; exit 1; }
+
+command -v herdr >/dev/null 2>&1 || die "herdr not found on PATH."
+command -v hunk  >/dev/null 2>&1 || die "hunk not found on PATH."
+
+REPO=$(git rev-parse --show-toplevel 2>/dev/null) \
+    || die "not inside a git repository."
+
+herdr pane current --current >/dev/null 2>&1 \
+    || die "not running inside herdr. Start herdr, then run your agent in a pane."
+
+RATIO="${1:-0.5}"
+
+# herdr replies with a JSON envelope carrying exactly one "pane_id", at
+# .result.pane.pane_id. Extracted with sed to avoid adding a JSON dependency.
+SPLIT_OUT=$(herdr pane split --current --direction right --ratio "$RATIO" \
+                             --cwd "$REPO" --no-focus)
+PANE=$(printf '%s\n' "$SPLIT_OUT" | sed -n 's/.*"pane_id":"\([^"]*\)".*/\1/p')
+
+case "$PANE" in
+    *:*) ;;
+    *) die "could not read a pane id from: $SPLIT_OUT" ;;
+esac
+
+herdr pane run "$PANE" 'hunk diff' >/dev/null
+
+# hunk registers with its loopback daemon a moment after launch.
+n=0
+while [ "$n" -lt 20 ]; do
+    if hunk session get --repo "$REPO" --json >/dev/null 2>&1; then
+        printf 'pane_id=%s\nrepo=%s\n' "$PANE" "$REPO"
+        exit 0
+    fi
+    sleep 0.5
+    n=$((n + 1))
+done
+
+herdr pane close "$PANE" >/dev/null 2>&1 || true
+die "hunk did not register a session for $REPO within 10s. If you are running
+inside an agent sandbox, loopback access to hunk's daemon may be blocked; retry
+with network permission rather than exposing the daemon."

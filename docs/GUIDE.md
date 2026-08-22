@@ -77,7 +77,7 @@ Browse with yazi:
 yazi
 ```
 
-`j` / `k` move, `l` enters a directory and `h` goes back up, `.` toggles hidden files.
+`↑` / `↓` move, `→` enters a directory and `←` goes back up, `.` toggles hidden files.
 `Enter` opens the file — in micro, because `$EDITOR` is set. Save with `Ctrl+s`, quit
 with `Ctrl+q`, and you are back in yazi where you left off.
 
@@ -107,8 +107,9 @@ things you ran there are then the first few results.
 
 Press **`Ctrl+r`** for the same search across everything, unscoped.
 
-In either, `Ctrl+j` and `Ctrl+k` move through results, `Enter` runs the selection, `Tab`
-puts it on the prompt so you can edit it first, and `Esc` cancels.
+In either, `↑` and `↓` move through results, `Enter` runs the selection, `Tab` puts it
+on the prompt so you can edit it first, and `Esc` cancels — as does `↓` past the newest
+result, which drops you back on an untouched prompt.
 
 ---
 
@@ -124,8 +125,9 @@ connection leaves everything exactly as it was — run `herdr` again and you are
 it. `Ctrl+b` then `q` detaches on purpose.
 
 `Ctrl+b` then `v` splits the pane you are in; `Ctrl+b` then `h` / `j` / `k` / `l` moves
-focus between panes. Splits are also scriptable, which is how `hunk-review-pane` puts
-the diff where it does:
+focus between panes — arrow keys are not bound in prefix mode, so the vim keys are the
+only ones here. Splits are also scriptable, which is how `hunk-review-pane` puts the
+diff where it does:
 
 ```bash
 herdr pane split --pane "$HERDR_PANE_ID" --direction right --ratio 0.5 --cwd "$PWD" --no-focus
@@ -205,7 +207,7 @@ help.
 A fast file manager with previews for images, PDFs and archives. Its job in this bundle
 is finding the file — once you press `Enter`, micro takes over.
 
-`j` / `k` move · `h` / `l` up / into a directory · `Enter` open · `Space` select ·
+`↑` / `↓` move · `←` / `→` up / into a directory · `Enter` open · `Space` select ·
 `.` toggle hidden files · `q` quit.
 
 Docs: <https://github.com/sxyazi/yazi>. Press `~` or `F1` in the TUI for the full keymap.
@@ -227,8 +229,8 @@ A SQLite-backed replacement for shell history that records the directory, exit c
 duration of every command. This repo configures the up-arrow binding to filter by
 directory, which is the whole reason it is in the bundle.
 
-`Up Arrow` search this directory · `Ctrl+r` search everywhere · `Ctrl+j` / `Ctrl+k` move
-· `Enter` run · `Tab` edit before running · `Esc` cancel.
+`Up Arrow` search this directory · `Ctrl+r` search everywhere · `↑` / `↓` move ·
+`Enter` run · `Tab` edit before running · `Esc` cancel.
 
 Docs: <https://docs.atuin.sh>. `atuin --help` lists the CLI, and
 `atuin default-config` prints every setting with its accepted values.

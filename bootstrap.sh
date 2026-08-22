@@ -186,7 +186,73 @@ elif ! grep -q 'filter_mode_shell_up_key_binding' "$HOME/.config/atuin/config.to
     ATUIN_NEEDS_KEY=1
 fi
 
-# 6. Review workflow: hunk-review-pane on PATH, plus agent skills.
+# 6. herdr pane navigation: arrow keys as well as hjkl.
+#
+# Each action is written as a list so herdr's own prefix+h/j/k/l keeps working. A bare
+# string would replace it, and this is meant to add a second way in rather than swap one
+# set of keys for another. Nothing is displaced either way: no herdr default binds an
+# arrow behind the prefix.
+#
+# Appending is only safe while the config has no [keys] table of its own. TOML rejects a
+# second one, and herdr answers a parse error by falling back to defaults wholesale, so
+# getting this wrong costs the user their whole herdr config rather than just this block.
+# A config that already binds keys is left alone and reported at the end instead.
+HERDR_KEYS_SKIPPED=""
+if is_installed herdr; then
+    HERDR_CONFIG="$HOME/.config/herdr/config.toml"
+    mkdir -p "$(dirname "$HERDR_CONFIG")"
+    [ -f "$HERDR_CONFIG" ] || : > "$HERDR_CONFIG"
+
+    if grep -q '^# terminal-bootstrap herdr keys$' "$HERDR_CONFIG"; then
+        echo -e "${YELLOW}  - herdr arrow-key pane focus already configured${NC}"
+    elif grep -qE '^[[:space:]]*\[\[?[[:space:]]*keys' "$HERDR_CONFIG"; then
+        HERDR_KEYS_SKIPPED="existing"
+    else
+        HERDR_TMP="$(mktemp "${TMPDIR:-/tmp}/tb-herdr.XXXXXX")"
+
+        # What follows is validated against the candidate file rather than the installed
+        # one, through HERDR_CONFIG_PATH. A herdr old enough to ignore that variable
+        # would be reporting the *current* config clean while the candidate went unread,
+        # so prove the redirect works by first handing it a file it has to reject.
+        printf '[keys]\nfocus_pane_left = "not+a+key"\n' > "$HERDR_TMP"
+        if HERDR_CONFIG_PATH="$HERDR_TMP" herdr config check >/dev/null 2>&1; then
+            HERDR_KEYS_SKIPPED="unverified"
+        else
+            cat "$HERDR_CONFIG" > "$HERDR_TMP"
+            # Without this, a config whose last line has no trailing newline gets the
+            # [keys] header spliced onto the end of it.
+            if [ -s "$HERDR_TMP" ] && [ -n "$(tail -c 1 "$HERDR_TMP")" ]; then
+                printf '\n' >> "$HERDR_TMP"
+            fi
+            cat >> "$HERDR_TMP" << 'HERDR_KEYS'
+
+# terminal-bootstrap herdr keys
+[keys]
+focus_pane_left  = ["prefix+h", "prefix+left"]
+focus_pane_down  = ["prefix+j", "prefix+down"]
+focus_pane_up    = ["prefix+k", "prefix+up"]
+focus_pane_right = ["prefix+l", "prefix+right"]
+HERDR_KEYS
+
+            # herdr validates its own config, which is also how this finds out whether
+            # the installed version accepts a list of bindings per action at all.
+            # Refusing a file it rejects is what keeps an older herdr from answering
+            # this block by discarding the rest of the user's settings.
+            if HERDR_CONFIG_PATH="$HERDR_TMP" herdr config check >/dev/null 2>&1; then
+                echo -e "${BLUE}==> Adding arrow-key pane navigation to herdr...${NC}"
+                cat "$HERDR_TMP" > "$HERDR_CONFIG"
+                # Reaches a running server without a restart. With none running there is
+                # nothing to reload, hence non-fatal.
+                herdr server reload-config >/dev/null 2>&1 || true
+            else
+                HERDR_KEYS_SKIPPED="unverified"
+            fi
+        fi
+        rm -f "$HERDR_TMP"
+    fi
+fi
+
+# 7. Review workflow: hunk-review-pane on PATH, plus agent skills.
 echo -e "${BLUE}==> Installing review workflow...${NC}"
 
 # `ln -sfn` swaps an existing symlink atomically, which is what a re-run needs.
@@ -283,6 +349,21 @@ if [ "$ATUIN_NEEDS_KEY" = 1 ]; then
     echo -e "${YELLOW}    Add  filter_mode_shell_up_key_binding = \"directory\"  to it for${NC}"
     echo -e "${YELLOW}    directory-scoped Up Arrow.${NC}"
 fi
+case "$HERDR_KEYS_SKIPPED" in
+    existing)
+        echo -e "${YELLOW}    Your ~/.config/herdr/config.toml already binds keys, so it was left${NC}"
+        echo -e "${YELLOW}    untouched. For arrow keys beside hjkl, add to its [keys] table:${NC}"
+        echo -e "${YELLOW}      focus_pane_left  = [\"prefix+h\", \"prefix+left\"]${NC}"
+        echo -e "${YELLOW}      focus_pane_down  = [\"prefix+j\", \"prefix+down\"]${NC}"
+        echo -e "${YELLOW}      focus_pane_up    = [\"prefix+k\", \"prefix+up\"]${NC}"
+        echo -e "${YELLOW}      focus_pane_right = [\"prefix+l\", \"prefix+right\"]${NC}"
+        ;;
+    unverified)
+        echo -e "${YELLOW}    This herdr would not confirm the arrow-key pane bindings, so${NC}"
+        echo -e "${YELLOW}    ~/.config/herdr/config.toml was left untouched. Pane focus stays on${NC}"
+        echo -e "${YELLOW}    Ctrl+b then h/j/k/l; upgrading herdr and re-running picks them up.${NC}"
+        ;;
+esac
 echo -e ""
 echo -e "  Restart your shell, or: ${YELLOW}source $SHELL_RC${NC}"
 echo -e "  Guide: ${YELLOW}$TB_ROOT/docs/GUIDE.md${NC}"

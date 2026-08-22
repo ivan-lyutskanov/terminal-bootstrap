@@ -184,8 +184,11 @@ A terminal workspace manager for AI coding agents. Panes, tabs and workspaces ba
 server that keeps running after you disconnect, with agent state surfaced in the pane
 chrome so you can see which agent is working and which is waiting on you.
 
-Everything is prefixed with `Ctrl+b`: then `v` to split · `h` / `j` / `k` / `l` to move
-focus · `x` to close a pane · `z` to zoom one to full screen · `q` to detach.
+Everything is prefixed with `Ctrl+b`: then `v` to split · an arrow key to move focus ·
+`x` to close a pane · `z` to zoom one to full screen · `q` to detach.
+
+The arrows are this repo's addition, written into `~/.config/herdr/config.toml`. herdr's
+own default is `h` / `j` / `k` / `l`, and that keeps working — both are bound.
 
 Docs: <https://herdr.dev>. Press `Ctrl+b` then `?` in the app for the full keymap, and
 `herdr --help` for the CLI.

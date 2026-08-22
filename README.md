@@ -19,7 +19,7 @@ to support.
 | **[lazygit](https://github.com/jesseduffield/lazygit)** | Git TUI, and the only tool here that stages anything | `e` opens the file in `$EDITOR`; `C` writes the commit message there |
 | **[atuin](https://docs.atuin.sh)** | SQLite-backed shell history | Up Arrow scoped to the current directory via `filter_mode_shell_up_key_binding` |
 | **[hunk](https://hunk.dev/docs)** | Review-first diff viewer for agent-authored changesets. It does not stage | Its own generated agent skill is symlinked into opencode |
-| **[herdr](https://herdr.dev)** | Terminal workspace manager for AI coding agents | Registered to report opencode's agent state in the pane UI |
+| **[herdr](https://herdr.dev)** | Terminal workspace manager for AI coding agents | Registered to report opencode's agent state in the pane UI; pane focus on `Ctrl+b` + arrow keys as well as `hjkl` |
 | **[opencode](https://github.com/anomalyco/opencode)** | Terminal AI coding agent | Given the `hunk-review-pane` skill |
 
 Plus `hunk-review-pane` — this repository's own command, symlinked onto your `PATH` at
@@ -64,6 +64,13 @@ The clone is the install location — configuration is sourced from it, so updat
    not already have that file — an existing atuin config is never overwritten. When it
    skips, the installer says so at the end, with the line to add yourself. atuin's own init keeps its keymaps; nothing is rebound by
    hand.
+5. **Arrow keys for herdr panes.** `~/.config/herdr/config.toml` gets `Ctrl+b` + an
+   arrow key for pane focus, added *alongside* herdr's own `h` / `j` / `k` / `l` rather
+   than in place of it — each action is bound to a list of two keys. Nothing is
+   displaced: no herdr default binds an arrow behind the prefix. The block is only
+   appended to a config with no `[keys]` table of its own, and only after herdr itself
+   validates the result; otherwise the file is left untouched and the lines to add are
+   printed at the end.
 
 ---
 

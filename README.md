@@ -49,9 +49,11 @@ The clone is the install location — configuration is sourced from it, so updat
    in the same pane. Two skills are installed for it: this repo's, covering the notes,
    and hunk's own generated one, symlinked rather than copied so it cannot drift.
 2. **One sourced file.** All shell configuration lives in `shell/init.sh` inside the
-   clone. `bootstrap.sh` appends a single guarded `source` line to your `~/.zshrc` (or
-   `~/.bash_profile` on macOS bash, `~/.bashrc` elsewhere). Updating is `git pull`;
-   uninstalling is deleting the `# terminal-bootstrap` block that line sits in.
+   clone. `bootstrap.sh` writes a single guarded `source` line into a
+   `# terminal-bootstrap` block in your `~/.zshrc` (or `~/.bash_profile` on macOS bash,
+   `~/.bashrc` elsewhere). Later runs find that block by its marker, so moving the clone
+   and re-running repoints the block you already have rather than leaving a second one
+   behind it. Updating is `git pull`; uninstalling is deleting the block.
 3. **Tools from a Brewfile, installed one at a time.** The tool list is the `Brewfile`,
    but each formula is installed in its own `brew install` so that one unavailable
    package cannot abort the rest of setup. Anything that fails is reported at the end

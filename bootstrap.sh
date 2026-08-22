@@ -111,15 +111,62 @@ while IFS= read -r line <&3 || [ -n "$line" ]; do
 done 3< "$TB_ROOT/Brewfile"
 
 # 4. Wire the shell configuration in with a single sourced line.
+#
+# Keyed on the `# terminal-bootstrap` marker rather than on the source line, because
+# that line embeds this clone's absolute path and so only ever matches the clone it
+# was written from. Re-running from a moved or second clone used to append a second
+# block and leave both live: atuin initialised twice, and whichever clone sourced
+# last silently won $EDITOR. Rewriting the marked block keeps exactly one, in the
+# place it already occupies, and collapses duplicates an earlier run left behind.
+#
+# A marker followed by anything that is not a source line is left alone. Nothing
+# proves such a line is ours, and this is the file that breaks every future shell
+# if the guess is wrong.
 SOURCE_LINE="[ -f \"$TB_ROOT/shell/init.sh\" ] && . \"$TB_ROOT/shell/init.sh\""
-if ! grep -qF "$SOURCE_LINE" "$SHELL_RC" 2>/dev/null; then
-    echo -e "${BLUE}==> Adding terminal-bootstrap to $SHELL_RC...${NC}"
-    {
-        echo ''
-        echo '# terminal-bootstrap'
-        echo "$SOURCE_LINE"
-    } >> "$SHELL_RC"
+[ -f "$SHELL_RC" ] || : > "$SHELL_RC"
+
+# Read the clone paths already wired in before rewriting, so the summary can say what
+# moved rather than just that something did.
+PREV_ROOTS="$(sed -n 's|^\[ -f "\(.*\)/shell/init\.sh" \] && \. .*$|\1|p' "$SHELL_RC" | sort -u)"
+
+RC_TMP="$(mktemp "${TMPDIR:-/tmp}/tb-rc.XXXXXX")"
+TB_SOURCE_LINE="$SOURCE_LINE" awk '
+    BEGIN {
+        marker = "# terminal-bootstrap"
+        newsrc = ENVIRON["TB_SOURCE_LINE"]
+        srcpat = "^\\[ -f \".*/shell/init\\.sh\" \\] && \\. \".*/shell/init\\.sh\"$"
+    }
+    /^[ \t]*#[ \t]*terminal-bootstrap[ \t]*$/ {
+        if ((getline nextline) <= 0) { print; next }   # marker on the last line
+        if (nextline !~ srcpat) { print; print nextline; next }
+        if (seen++) next                               # duplicate block: drop it
+        print marker
+        print newsrc
+        next
+    }
+    { print }
+    END { if (!seen) { print ""; print marker; print newsrc } }
+' "$SHELL_RC" > "$RC_TMP"
+
+if ! grep -qxF "$SOURCE_LINE" "$RC_TMP"; then
+    echo -e "${YELLOW}==> Could not wire $SHELL_RC; left it unchanged${NC}" >&2
+elif ! cmp -s "$SHELL_RC" "$RC_TMP"; then
+    # Written through the existing file rather than moved over it: `mv` would leave
+    # the rc owned by whoever ran this and readable only by them, which is mktemp's
+    # 0600, not the mode the file had.
+    cat "$RC_TMP" > "$SHELL_RC"
+    if [ -z "$PREV_ROOTS" ]; then
+        echo -e "${BLUE}==> Adding terminal-bootstrap to $SHELL_RC...${NC}"
+    else
+        echo -e "${BLUE}==> Updating terminal-bootstrap in $SHELL_RC...${NC}"
+        printf '%s\n' "$PREV_ROOTS" | while IFS= read -r prev_root; do
+            if [ -n "$prev_root" ] && [ "$prev_root" != "$TB_ROOT" ]; then
+                echo -e "${YELLOW}  - was pointing at $prev_root${NC}"
+            fi
+        done
+    fi
 fi
+rm -f "$RC_TMP"
 
 # 5. Atuin Directory-Scoped History Setup
 mkdir -p "$HOME/.config/atuin"

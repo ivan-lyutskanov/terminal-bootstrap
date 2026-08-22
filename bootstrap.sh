@@ -38,6 +38,20 @@ if [[ "$SHELL" == *"/bash"* ]]; then
     fi
 fi
 
+# Homebrew on Linux needs these before its installer will succeed.
+if [[ "$OSTYPE" != darwin* ]] && ! is_installed brew; then
+    MISSING=""
+    for dep in curl git file; do
+        is_installed "$dep" || MISSING="$MISSING $dep"
+    done
+    if [ -n "$MISSING" ]; then
+        echo "Homebrew on Linux needs these packages first:$MISSING" >&2
+        echo "  Debian/Ubuntu: sudo apt-get install -y build-essential procps curl file git" >&2
+        echo "  Fedora:        sudo dnf groupinstall -y 'Development Tools' && sudo dnf install -y procps-ng curl file git" >&2
+        exit 1
+    fi
+fi
+
 # 1. Package Manager Setup
 if ! is_installed brew; then
     echo -e "${BLUE}==> Installing Homebrew...${NC}"
@@ -56,24 +70,37 @@ fi
 echo -e "${BLUE}==> Updating Homebrew...${NC}"
 brew update
 
-# 3. Core TUI Tools Installation
-echo -e "${BLUE}==> Checking and installing TUI tools...${NC}"
+# 3. Core tool installation. Driven by the Brewfile, but installed one at a
+# time: `brew bundle` aborts on first failure, which would skip the rest of setup.
+echo -e "${BLUE}==> Installing tools from Brewfile...${NC}"
 
 FAILED_TOOLS=""
-for tool in micro yazi lazygit atuin node herdr hunk opencode; do
+# Input is read from fd 3, not stdin: `brew install` in the loop body would
+# otherwise inherit the Brewfile as its own stdin, and if any install ever
+# reads from stdin (a caveat, a prompt) it would silently consume the rest
+# of the Brewfile and skip subsequent formulae. fd 3 leaves stdin pointing
+# at the real terminal so a genuine prompt can still be answered by whoever
+# is running this interactively.
+# `|| [ -n "$line" ]` guards against a Brewfile without a trailing newline:
+# `read` fails on that last, newline-less line but still populates $line, and
+# without this the last formula would be silently dropped.
+while IFS= read -r line <&3 || [ -n "$line" ]; do
+    case "$line" in
+        brew\ *) ;;
+        *) continue ;;
+    esac
+    tool=$(printf '%s\n' "$line" | sed -n 's/^brew "\([^"]*\)".*/\1/p')
+    [ -n "$tool" ] || continue
+
     if is_installed "$tool"; then
-        echo -e "${YELLOW}  - $tool is already installed. Skipping.${NC}"
-        continue
-    fi
-    # Installed one at a time so a single unavailable formula does not abort
-    # the rest of setup. Failures are collected and reported at the end.
-    if brew install "$tool"; then
+        echo -e "${YELLOW}  - $tool already installed${NC}"
+    elif brew install "$tool"; then
         echo -e "${GREEN}  - installed $tool${NC}"
     else
         echo -e "${YELLOW}  - FAILED to install $tool (continuing)${NC}"
         FAILED_TOOLS="$FAILED_TOOLS $tool"
     fi
-done
+done 3< "$TB_ROOT/Brewfile"
 
 # 4. Wire the shell configuration in with a single sourced line.
 SOURCE_LINE="[ -f \"$TB_ROOT/shell/init.sh\" ] && . \"$TB_ROOT/shell/init.sh\""

@@ -76,3 +76,5 @@ echo 'export ANTHROPIC_API_KEY=$(secret-tool lookup service anthropic username "
 
 Note: this blocks on a locked keyring. On a headless or SSH session with no keyring
 daemon, set the variable another way rather than putting the lookup in your shell rc.
+
+Swap `anthropic` for `openai` or `google` in the `service` value of both commands, and `ANTHROPIC_API_KEY` for the matching variable name, as needed.

@@ -100,7 +100,15 @@ while IFS= read -r line <&3 || [ -n "$line" ]; do
     tool=$(printf '%s\n' "$line" | sed -n 's/^brew "\([^"]*\)".*/\1/p')
     [ -n "$tool" ] || continue
 
-    if is_installed "$tool"; then
+    # Formula name and binary name match for everything here except ripgrep,
+    # which installs as `rg`. Without the mapping the check below never finds
+    # it and brew gets re-invoked on every run.
+    case "$tool" in
+        ripgrep) bin="rg" ;;
+        *)       bin="$tool" ;;
+    esac
+
+    if is_installed "$bin"; then
         echo -e "${YELLOW}  - $tool already installed${NC}"
     elif brew install "$tool"; then
         echo -e "${GREEN}  - installed $tool${NC}"

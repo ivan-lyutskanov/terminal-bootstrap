@@ -16,7 +16,7 @@ to support.
 | :--- | :--- | :--- |
 | **[micro](https://micro-editor.github.io/)** | Terminal text editor with the `Ctrl` shortcuts you already know | Set as `$EDITOR` and `$VISUAL`, aliased to `vim` — this is the glue |
 | **[yazi](https://github.com/sxyazi/yazi)** | Fast TUI file manager | `Enter` on a file hands it to `$EDITOR` |
-| **[lazygit](https://github.com/jesseduffield/lazygit)** | Git TUI, and the only tool here that stages anything | Uses `$EDITOR` for commit messages |
+| **[lazygit](https://github.com/jesseduffield/lazygit)** | Git TUI, and the only tool here that stages anything | `e` opens the file in `$EDITOR`; `C` writes the commit message there |
 | **[atuin](https://docs.atuin.sh)** | SQLite-backed shell history | Up Arrow scoped to the current directory via `filter_mode_shell_up_key_binding` |
 | **[hunk](https://hunk.dev/docs)** | Review-first diff viewer for agent-authored changesets. It does not stage | Its own generated agent skill is symlinked into opencode |
 | **[herdr](https://herdr.dev)** | Terminal workspace manager for AI coding agents | Registered to report opencode's agent state in the pane UI |
@@ -58,8 +58,8 @@ The clone is the install location — configuration is sourced from it, so updat
 4. **Directory-scoped history.** `~/.config/atuin/config.toml` gets
    `filter_mode_shell_up_key_binding = "directory"`, so Up Arrow searches only what you
    ran here while `Ctrl+r` still searches everything. This is only written when you do
-   not already have that file — an existing atuin config is never overwritten, so add
-   the key to it yourself. atuin's own init keeps its keymaps; nothing is rebound by
+   not already have that file — an existing atuin config is never overwritten. When it
+   skips, the installer says so at the end, with the line to add yourself. atuin's own init keeps its keymaps; nothing is rebound by
    hand.
 
 ---

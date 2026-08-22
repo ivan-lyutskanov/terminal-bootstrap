@@ -66,9 +66,17 @@ if ! is_installed brew; then
     done
 fi
 
-# 2. Update Homebrew before installing tools
-echo -e "${BLUE}==> Updating Homebrew...${NC}"
-brew update
+# 2. Update Homebrew before installing tools. Conditional, because the formula
+# index moves slowly and a fetch is the slowest step here, and non-fatal, because
+# under `set -e` a failed update (broken tap, flaky network) would abort the whole
+# installer before a single formula was installed.
+BREW_REPO="$(brew --repo 2>/dev/null || true)"
+if [ -n "$BREW_REPO" ] && [ -n "$(find "$BREW_REPO/.git/FETCH_HEAD" -mtime -1 2>/dev/null)" ]; then
+    echo -e "${YELLOW}==> Homebrew updated within the last day, skipping brew update${NC}"
+else
+    echo -e "${BLUE}==> Updating Homebrew...${NC}"
+    brew update || echo -e "${YELLOW}  - brew update failed; continuing with the current formula index${NC}"
+fi
 
 # 3. Core tool installation. Driven by the Brewfile, but installed one at a
 # time: `brew bundle` aborts on first failure, which would skip the rest of setup.
@@ -116,7 +124,10 @@ fi
 # 5. Atuin Directory-Scoped History Setup
 mkdir -p "$HOME/.config/atuin"
 
-# Only write config if it doesn't already exist (idempotent)
+# Only write config if it doesn't already exist: an existing atuin config is the
+# user's, not ours. But someone upgrading from an older install already has one
+# containing the wrong key, so say so at the end rather than silently doing nothing.
+ATUIN_NEEDS_KEY=0
 if [ ! -f "$HOME/.config/atuin/config.toml" ]; then
     cat << 'EOF' > "$HOME/.config/atuin/config.toml"
 search_mode = "prefix"
@@ -124,6 +135,8 @@ filter_mode_shell_up_key_binding = "directory"
 style = "compact"
 inline_height = 20
 EOF
+elif ! grep -q 'filter_mode_shell_up_key_binding' "$HOME/.config/atuin/config.toml"; then
+    ATUIN_NEEDS_KEY=1
 fi
 
 # 6. Review workflow: hunk-review-pane on PATH, plus agent skills.
@@ -140,6 +153,14 @@ ln -sfn "$TB_ROOT/skills/hunk-review-pane" "$SKILLS_DIR/hunk-review-pane"
 # writing a copy that would drift on the next hunk release.
 if is_installed hunk; then
     HUNK_SKILL="$(hunk skill path 2>/dev/null || true)"
+    # `hunk skill path` resolves through the running binary, which brew keeps under
+    # a versioned Cellar path. Linking that pins the skill to today's version and
+    # dangles once `brew cleanup` removes it, so prefer the opt prefix, which brew
+    # re-points on every upgrade.
+    HUNK_OPT="$(brew --prefix hunk 2>/dev/null || true)"
+    if [ -n "$HUNK_OPT" ] && [ -f "$HUNK_OPT/libexec/skills/hunk-review/SKILL.md" ]; then
+        HUNK_SKILL="$HUNK_OPT/libexec/skills/hunk-review/SKILL.md"
+    fi
     if [ -n "$HUNK_SKILL" ] && [ -f "$HUNK_SKILL" ]; then
         mkdir -p "$SKILLS_DIR/hunk-review"
         ln -sfn "$HUNK_SKILL" "$SKILLS_DIR/hunk-review/SKILL.md"
@@ -155,6 +176,11 @@ echo -e "${GREEN}==> Setup complete.${NC}"
 if [ -n "$FAILED_TOOLS" ]; then
     echo -e "${YELLOW}    These tools failed to install:${FAILED_TOOLS}${NC}"
     echo -e "${YELLOW}    Re-run this script to retry them.${NC}"
+fi
+if [ "$ATUIN_NEEDS_KEY" = 1 ]; then
+    echo -e "${YELLOW}    Your existing ~/.config/atuin/config.toml was left untouched.${NC}"
+    echo -e "${YELLOW}    Add  filter_mode_shell_up_key_binding = \"directory\"  to it for${NC}"
+    echo -e "${YELLOW}    directory-scoped Up Arrow.${NC}"
 fi
 echo -e ""
 echo -e "  Restart your shell, or: ${YELLOW}source $SHELL_RC${NC}"

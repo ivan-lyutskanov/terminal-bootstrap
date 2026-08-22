@@ -88,7 +88,7 @@ lazygit
 
 `Space` stages or unstages the selected file. `Enter` on a file opens the staging view,
 where `←` and `→` step between hunks and `Space` stages just the lines under the cursor.
-`c` opens the commit message — in micro again, same reason. `P` pushes.
+`c` opens lazygit's own commit panel; `C` writes the message in micro instead. `P` pushes.
 
 One thing worth knowing: `[` and `]` switch tabs in lazygit. They do not move between
 changes, which is what the equivalent keys do in hunk.
@@ -100,8 +100,8 @@ changes, which is what the equivalent keys do in hunk.
 Press **Up Arrow**. atuin answers with history from the current directory only, because
 `bootstrap.sh` writes `filter_mode_shell_up_key_binding = "directory"` into
 `~/.config/atuin/config.toml` — but only if you do not already have that file. An
-existing atuin config is left untouched, so if you had one, add that key to it yourself
-or Up Arrow stays global. In a project you have not touched for a month, the last few
+existing atuin config is left untouched — the installer prints the line to add when it
+skips, and until you add it Up Arrow stays global. In a project you have not touched for a month, the last few
 things you ran there are then the first few results.
 
 Press **`Ctrl+r`** for the same search across everything, unscoped.

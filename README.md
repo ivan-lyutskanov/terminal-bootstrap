@@ -57,8 +57,10 @@ The clone is the install location — configuration is sourced from it, so updat
    and retried on the next run.
 4. **Directory-scoped history.** `~/.config/atuin/config.toml` gets
    `filter_mode_shell_up_key_binding = "directory"`, so Up Arrow searches only what you
-   ran here while `Ctrl+r` still searches everything. atuin's own init keeps its
-   keymaps; nothing is rebound by hand.
+   ran here while `Ctrl+r` still searches everything. This is only written when you do
+   not already have that file — an existing atuin config is never overwritten, so add
+   the key to it yourself. atuin's own init keeps its keymaps; nothing is rebound by
+   hand.
 
 ---
 

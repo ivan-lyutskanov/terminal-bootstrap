@@ -99,8 +99,10 @@ changes, which is what the equivalent keys do in hunk.
 
 Press **Up Arrow**. atuin answers with history from the current directory only, because
 `bootstrap.sh` writes `filter_mode_shell_up_key_binding = "directory"` into
-`~/.config/atuin/config.toml`. In a project you have not touched for a month, the last
-few things you ran there are the first few results.
+`~/.config/atuin/config.toml` — but only if you do not already have that file. An
+existing atuin config is left untouched, so if you had one, add that key to it yourself
+or Up Arrow stays global. In a project you have not touched for a month, the last few
+things you ran there are then the first few results.
 
 Press **`Ctrl+r`** for the same search across everything, unscoped.
 
@@ -125,8 +127,12 @@ focus between panes. Splits are also scriptable, which is how `hunk-review-pane`
 the diff where it does:
 
 ```bash
-herdr pane split --direction right --ratio 0.5 --cwd "$PWD" --no-focus
+herdr pane split --pane "$HERDR_PANE_ID" --direction right --ratio 0.5 --cwd "$PWD" --no-focus
 ```
+
+`--pane "$HERDR_PANE_ID"` is the load-bearing part: it splits off the pane the command is
+running in, rather than whichever pane happens to be focused — which is not the same pane
+when an agent is working in the background.
 
 Named sessions keep separate workspaces apart:
 

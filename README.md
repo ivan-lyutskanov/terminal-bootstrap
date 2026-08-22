@@ -35,8 +35,9 @@ git clone --depth 1 https://github.com/ivan-lyutskanov/terminal-bootstrap.git ~/
 ```
 
 The clone is the install location — configuration is sourced from it, so updating is
-`git -C ~/.terminal-bootstrap pull` and uninstalling is removing one line from your
-`~/.zshrc`. Any clone path works; `~/.terminal-bootstrap` is just the convention.
+`git -C ~/.terminal-bootstrap pull` and uninstalling is removing the
+`# terminal-bootstrap` block from your `~/.zshrc`. Any clone path works;
+`~/.terminal-bootstrap` is just the convention.
 
 ---
 
@@ -50,7 +51,7 @@ The clone is the install location — configuration is sourced from it, so updat
 2. **One sourced file.** All shell configuration lives in `shell/init.sh` inside the
    clone. `bootstrap.sh` appends a single guarded `source` line to your `~/.zshrc` (or
    `~/.bash_profile` on macOS bash, `~/.bashrc` elsewhere). Updating is `git pull`;
-   uninstalling is deleting that one line.
+   uninstalling is deleting the `# terminal-bootstrap` block that line sits in.
 3. **Tools from a Brewfile, installed one at a time.** The tool list is the `Brewfile`,
    but each formula is installed in its own `brew install` so that one unavailable
    package cannot abort the rest of setup. Anything that fails is reported at the end

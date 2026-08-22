@@ -10,8 +10,51 @@ set -euo pipefail
 
 die() { printf 'hunk-review-pane: %s\n' "$1" >&2; exit 1; }
 
-command -v herdr >/dev/null 2>&1 || die "herdr not found on PATH."
-command -v hunk  >/dev/null 2>&1 || die "hunk not found on PATH."
+# Both CLIs answer in JSON and neither jq nor a runtime is worth depending on
+# for one field. BRE has no lazy quantifier, so a leading `.*` would run to the
+# LAST occurrence on the line; put each one on its own line and take the first.
+json_first_string() {
+    printf '%s\n' "$2" | sed 's/"'"$1"'":/\
+&/g' | sed -n 's/^"'"$1"'":[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p'
+}
+
+# `--repo` matches any session whose repoRoot *contains* the selector, so a
+# dotfiles checkout rooted at $HOME answers for every project under it. Only an
+# exact repoRoot is this repo's own session, so print that and let the caller
+# compare. hunk fails identically whether nothing matched or several did, which
+# would read as "no session"; split them apart into 1 (none) and 2 (ambiguous).
+live_repo_root() {
+    local out rc=0
+    out=$(hunk session get --repo "$1" --json 2>&1) || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        case "$out" in
+            *'Multiple active sessions'*) return 2 ;;
+            *) return 1 ;;
+        esac
+    fi
+    json_first_string repoRoot "$out"
+}
+
+# Every real number strictly inside (0, 1) is 0.<digits> with a nonzero digit
+# somewhere, so no arithmetic is needed to range-check one.
+ratio_ok() {
+    local fraction
+    case "$1" in
+        0.*) fraction=${1#0.} ;;
+        .*)  fraction=${1#.} ;;
+        *)   return 1 ;;
+    esac
+    case "$fraction" in
+        *[!0-9]*) return 1 ;;
+        *[1-9]*) return 0 ;;
+    esac
+    return 1
+}
+
+command -v herdr >/dev/null 2>&1 \
+    || die "herdr not found on PATH. Install it with \`brew install herdr\`."
+command -v hunk >/dev/null 2>&1 \
+    || die "hunk not found on PATH. Install it with \`brew install hunk\`."
 
 REPO=$(git rev-parse --show-toplevel 2>/dev/null) \
     || die "not inside a git repository."
@@ -23,20 +66,28 @@ REPO=$(git rev-parse --show-toplevel 2>/dev/null) \
 [ -n "${HERDR_PANE_ID:-}" ] \
     || die "not running inside herdr. Start herdr, then run your agent in a pane."
 
-# A second session on the same repo makes every `--repo` selector ambiguous
-# ("Multiple active sessions match repoRoot ..."), which would break the review
-# loop this script exists to set up. Refuse rather than create that state.
-if hunk session get --repo "$REPO" >/dev/null 2>&1; then
-    die "a hunk session is already live for $REPO. Drive that one with \`hunk session ...\`, or close it and run this again."
-fi
+# Two ways this repo can already be under review, and both have to refuse: one
+# session on it exactly (drive that one instead of opening a second), or several
+# ("Multiple active sessions match repoRoot ..."), which leaves `--repo` unable
+# to address either and would break the review loop this exists to set up.
+PROBE_RC=0
+LIVE_ROOT=$(live_repo_root "$REPO") || PROBE_RC=$?
+[ "$PROBE_RC" -ne 2 ] \
+    || die "several hunk sessions already match $REPO, so \`hunk session --repo\` cannot address one of them. Run \`hunk session list\`, close all but one, then run this again."
+[ "$LIVE_ROOT" != "$REPO" ] \
+    || die "a hunk session is already live for $LIVE_ROOT. Drive that one with \`hunk session ...\`, or close it and run this again."
 
-RATIO="${1:-0.5}"
+# Handed straight to herdr, which would only answer a bad value with a raw
+# float-parse error naming a flag the caller never typed.
+RATIO="${1-0.5}"
+ratio_ok "$RATIO" \
+    || die "ratio must be a number strictly between 0 and 1, e.g. 0.4 (got \`$RATIO\`)."
 
 # herdr replies with a JSON envelope carrying exactly one "pane_id", at
-# .result.pane.pane_id. Extracted with sed to avoid adding a JSON dependency.
+# .result.pane.pane_id.
 SPLIT_OUT=$(herdr pane split --pane "$HERDR_PANE_ID" --direction right \
                              --ratio "$RATIO" --cwd "$REPO" --no-focus)
-PANE=$(printf '%s\n' "$SPLIT_OUT" | sed -n 's/.*"pane_id":"\([^"]*\)".*/\1/p')
+PANE=$(json_first_string pane_id "$SPLIT_OUT")
 
 case "$PANE" in
     *:*) ;;
@@ -57,7 +108,11 @@ herdr pane run "$PANE" 'hunk diff' >/dev/null
 # hunk registers with its loopback daemon a moment after launch.
 n=0
 while [ "$n" -lt 20 ]; do
-    if hunk session get --repo "$REPO" --json >/dev/null 2>&1; then
+    PROBE_RC=0
+    LIVE_ROOT=$(live_repo_root "$REPO") || PROBE_RC=$?
+    [ "$PROBE_RC" -ne 2 ] \
+        || die "a second hunk session on $REPO appeared while this one was starting, so \`hunk session --repo\` cannot address one of them. Run \`hunk session list\` and close all but one."
+    if [ "$LIVE_ROOT" = "$REPO" ]; then
         trap - EXIT INT TERM
         printf 'pane_id=%s\nrepo=%s\n' "$PANE" "$REPO"
         exit 0
@@ -65,6 +120,11 @@ while [ "$n" -lt 20 ]; do
     sleep 0.5
     n=$((n + 1))
 done
+
+# Something answers for $REPO but is rooted elsewhere, so the exact compare above
+# is what failed, not the daemon. Name it instead of blaming the sandbox.
+[ -z "$LIVE_ROOT" ] \
+    || die "the hunk session answering for $REPO is rooted at $LIVE_ROOT, so the review just opened never registered its own. Close that session, or drive it with \`hunk session ... --repo $LIVE_ROOT\`."
 
 die "hunk did not register a session for $REPO within 10s. If you are running
 inside an agent sandbox, loopback access to hunk's daemon may be blocked; retry

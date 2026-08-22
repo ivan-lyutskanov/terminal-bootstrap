@@ -142,15 +142,30 @@ fi
 # 6. Review workflow: hunk-review-pane on PATH, plus agent skills.
 echo -e "${BLUE}==> Installing review workflow...${NC}"
 
+# `ln -sfn` swaps an existing symlink atomically, which is what a re-run needs.
+# Against a real file or directory it does something else entirely: it links
+# *inside* the destination, producing ~/.local/bin/hunk-review-pane/hunk-review-pane
+# and leaving the stale copy in place, still shadowing us. Clear a non-symlink out
+# of the way first, and say so -- it is the only thing here that destroys anything.
+relink() {
+    if [ -e "$2" ] && [ ! -L "$2" ]; then
+        echo -e "${YELLOW}  - replacing existing $2 with a symlink${NC}"
+        rm -rf "$2"
+    fi
+    ln -sfn "$1" "$2"
+}
+
 mkdir -p "$HOME/.local/bin"
-ln -sfn "$TB_ROOT/bin/hunk-review-pane" "$HOME/.local/bin/hunk-review-pane"
+relink "$TB_ROOT/bin/hunk-review-pane" "$HOME/.local/bin/hunk-review-pane"
 
 SKILLS_DIR="$HOME/.config/opencode/skills"
 mkdir -p "$SKILLS_DIR"
-ln -sfn "$TB_ROOT/skills/hunk-review-pane" "$SKILLS_DIR/hunk-review-pane"
+relink "$TB_ROOT/skills/hunk-review-pane" "$SKILLS_DIR/hunk-review-pane"
 
 # hunk generates its own skill from source metadata, so symlink it rather than
 # writing a copy that would drift on the next hunk release.
+HUNK_SKILL_MD="$SKILLS_DIR/hunk-review/SKILL.md"
+HUNK_SKILL_LINKED=0
 if is_installed hunk; then
     HUNK_SKILL="$(hunk skill path 2>/dev/null || true)"
     # `hunk skill path` resolves through the running binary, which brew keeps under
@@ -163,7 +178,25 @@ if is_installed hunk; then
     fi
     if [ -n "$HUNK_SKILL" ] && [ -f "$HUNK_SKILL" ]; then
         mkdir -p "$SKILLS_DIR/hunk-review"
-        ln -sfn "$HUNK_SKILL" "$SKILLS_DIR/hunk-review/SKILL.md"
+        relink "$HUNK_SKILL" "$HUNK_SKILL_MD"
+        HUNK_SKILL_LINKED=1
+    fi
+fi
+
+# An older version of this installer hand-wrote that SKILL.md, and its central rule
+# is inverted: it tells the agent to drive hunk's TUI and stage with it, which hunk's
+# own generated skill explicitly forbids. Whenever the symlink above did not land,
+# that wrong file is still what the agent reads, so retire it. Renamed rather than
+# deleted because nothing proves the file is ours -- skill discovery keys on the
+# literal SKILL.md name, so a renamed file is inert but recoverable.
+STALE_HUNK_SKILL=0
+if [ "$HUNK_SKILL_LINKED" = 0 ] && [ -f "$HUNK_SKILL_MD" ] && [ ! -L "$HUNK_SKILL_MD" ]; then
+    # Guarded, not bare: under `set -e` a failed mv would abort the installer here,
+    # skipping the herdr step and the entire summary — including the notice below.
+    if mv "$HUNK_SKILL_MD" "$HUNK_SKILL_MD.disabled" 2>/dev/null; then
+        STALE_HUNK_SKILL=1
+    else
+        echo -e "${YELLOW}  - could not rename $HUNK_SKILL_MD; it may contain stale advice${NC}"
     fi
 fi
 
@@ -176,6 +209,13 @@ echo -e "${GREEN}==> Setup complete.${NC}"
 if [ -n "$FAILED_TOOLS" ]; then
     echo -e "${YELLOW}    These tools failed to install:${FAILED_TOOLS}${NC}"
     echo -e "${YELLOW}    Re-run this script to retry them.${NC}"
+fi
+if [ "$STALE_HUNK_SKILL" = 1 ]; then
+    echo -e "${YELLOW}    hunk's generated review skill could not be linked.${NC}"
+    echo -e "${YELLOW}    An older install left a hand-written hunk-review skill whose staging${NC}"
+    echo -e "${YELLOW}    advice contradicts hunk's own, so it was renamed out of the way:${NC}"
+    echo -e "${YELLOW}      $HUNK_SKILL_MD.disabled${NC}"
+    echo -e "${YELLOW}    Re-run this script once hunk installs to get the real skill.${NC}"
 fi
 if [ "$ATUIN_NEEDS_KEY" = 1 ]; then
     echo -e "${YELLOW}    Your existing ~/.config/atuin/config.toml was left untouched.${NC}"

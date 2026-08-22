@@ -32,7 +32,8 @@ pane_id=w1:pQ
 repo=/Users/you/Projects/example
 ```
 
-The diff is now in a pane **you** own, next to the agent. Walk it:
+The diff is now in a pane **you** own, next to the agent. The split does not take focus,
+so press `Ctrl+b` then `l` to move into it. Walk it:
 
 | Key | Action |
 |-----|--------|

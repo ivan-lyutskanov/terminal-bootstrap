@@ -80,7 +80,7 @@ mkdir -p "$HOME/.config/atuin"
 if [ ! -f "$HOME/.config/atuin/config.toml" ]; then
     cat << 'EOF' > "$HOME/.config/atuin/config.toml"
 search_mode = "prefix"
-up_key_dir_scoped = true
+filter_mode_shell_up_key_binding = "directory"
 style = "compact"
 inline_height = 20
 EOF
@@ -88,14 +88,14 @@ fi
 
 if ! grep -q "atuin init" "$SHELL_RC" 2>/dev/null; then
     echo -e "${BLUE}==> Wiring Atuin into shell environment...${NC}"
+    # Directory scoping comes from filter_mode_shell_up_key_binding in config.toml.
+    # Do NOT pass --disable-up-arrow and rebind manually: atuin's own init binds
+    # ^[[A and ^[OA across the emacs, viins and vicmd keymaps. Overriding it with a
+    # single bindkey loses application-mode arrows and every vi keymap binding.
     if [[ "$SHELL" == *"/bash"* ]]; then
-        { echo 'eval "$(atuin init bash)"'; } >> "$SHELL_RC"
+        echo 'eval "$(atuin init bash)"' >> "$SHELL_RC"
     else
-        {
-            echo 'eval "$(atuin init zsh --disable-up-arrow)"'
-            echo 'bindkey "^[[A" atuin-up-search-vicmd'
-            echo 'bindkey "^[[A" atuin-up-search'
-        } >> "$SHELL_RC"
+        echo 'eval "$(atuin init zsh)"' >> "$SHELL_RC"
     fi
 fi
 

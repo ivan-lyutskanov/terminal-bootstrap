@@ -8,5 +8,4 @@ brew "lazygit"   # git TUI, does the staging
 brew "atuin"     # shell history, directory-scoped
 brew "node"      # runtime dependency for agent tooling
 brew "herdr"     # terminal workspace manager for agents
-brew "hunk"      # review-first diff viewer
 brew "opencode"  # terminal AI coding agent

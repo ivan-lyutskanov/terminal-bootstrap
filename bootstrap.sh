@@ -118,7 +118,117 @@ while IFS= read -r line <&3 || [ -n "$line" ]; do
     fi
 done 3< "$TB_ROOT/Brewfile"
 
-# 4. Wire the shell configuration in with a single sourced line.
+# 4. Herdr skill for opencode, version-matched to the installed herdr.
+#
+# herdr ships its own skill (skills/herdr/SKILL.md in herdr's repo) that first
+# landed in herdr 0.8.0, so 0.8.0 is a FLOOR for this step -- the only version
+# mechanism in the installer: a floor, not a pin, with no upper bound. If the
+# installed herdr is below it, upgrade it in place; if that still cannot reach the
+# floor, skip the skill and report it loudly, the same refuse-and-report stance as
+# the unverified-herdr-keys path below. The skill is fetched from the tag matching
+# the installed binary, so the skill and the binary can never drift, and a re-run
+# after a herdr upgrade re-fetches and converges. It is written as a managed file,
+# not a symlink: the source lives in herdr's GitHub repo (nothing local to link),
+# and a Cellar symlink dangles the moment `brew cleanup` removes the old path.
+SKILLS_DIR="$HOME/.config/opencode/skills"
+HERDR_SKILL_MD="$SKILLS_DIR/herdr/SKILL.md"
+HERDR_FLOOR="0.8.0"
+HERDR_VER=""
+HERDR_SKILL_STATE=""    # empty when ok, otherwise a skip reason for the summary
+HERDR_SKILL_RESULT=""   # current | installed | fetch-failed
+HERDR_SKILL_URL=""
+HERDR_UPGRADED_TO=""
+
+# `herdr --version` prints "herdr X.Y.Z"; take the first dotted number so the
+# label prefix never reaches the compare below.
+herdr_version() {
+    herdr --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1
+}
+# True when $1 is at least $2, comparing the numeric components of a dotted
+# version and treating a missing component as 0 (so 0.8 == 0.8.0).
+ver_at_least() {
+    local -a a b
+    IFS=. read -r -a a <<< "$1"
+    IFS=. read -r -a b <<< "$2"
+    local i x y
+    for i in 0 1 2; do
+        x=${a[i]:-0}; y=${b[i]:-0}
+        x=${x%%[!0-9]*}; x=${x:-0}
+        y=${y%%[!0-9]*}; y=${y:-0}
+        if [ "$x" -gt "$y" ]; then
+            return 0
+        elif [ "$x" -lt "$y" ]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+if is_installed herdr; then
+    HERDR_VER="$(herdr_version)"
+    if [ -z "$HERDR_VER" ]; then
+        HERDR_SKILL_STATE="unparseable-version"
+    elif ver_at_least "$HERDR_VER" "$HERDR_FLOOR"; then
+        :
+    else
+        echo -e "${YELLOW}==> herdr $HERDR_VER is below the $HERDR_FLOOR floor; upgrading herdr...${NC}"
+        if brew upgrade herdr; then
+            HERDR_NEW="$(herdr_version)"
+            if [ -n "$HERDR_NEW" ] && ver_at_least "$HERDR_NEW" "$HERDR_FLOOR"; then
+                HERDR_VER="$HERDR_NEW"
+                HERDR_UPGRADED_TO="$HERDR_NEW"
+            else
+                HERDR_SKILL_STATE="floor-not-met"
+            fi
+        else
+            HERDR_SKILL_STATE="upgrade-failed"
+        fi
+    fi
+else
+    HERDR_SKILL_STATE="herdr-missing"
+fi
+
+if [ -z "$HERDR_SKILL_STATE" ]; then
+    # Reinstall the opencode integration after any upgrade: herdr's docs require
+    # it, and it is what keeps opencode's agent state showing in the pane chrome.
+    if is_installed opencode; then
+        herdr integration install opencode >/dev/null 2>&1 || true
+    fi
+
+    # Fetch the skill from the tag matching the installed herdr, so the two can
+    # never drift; a re-run after an upgrade re-fetches and converges on the new
+    # tag.
+    HERDR_SKILL_URL="https://github.com/herdrdev/herdr/raw/v${HERDR_VER}/skills/herdr/SKILL.md"
+    HERDR_SKILL_TMP="$(mktemp "${TMPDIR:-/tmp}/tb-herdr-skill.XXXXXX")"
+    if curl -fsSL "$HERDR_SKILL_URL" -o "$HERDR_SKILL_TMP" && [ -s "$HERDR_SKILL_TMP" ]; then
+        # Stamp a managed header as a comment inside the frontmatter: the skill
+        # still parses, and a re-run can tell this file is ours.
+        TB_HERDR_VER="$HERDR_VER" awk '
+            BEGIN { marker = "# terminal-bootstrap managed: herdr skill, fetched from skills/herdr/SKILL.md @ herdr v" ENVIRON["TB_HERDR_VER"] }
+            NR==1 {
+                if ($0 ~ /^---[ \t]*$/) { print; print marker } else { print marker; print }
+                next
+            }
+            { print }
+        ' "$HERDR_SKILL_TMP" > "${HERDR_SKILL_TMP}.managed"
+        if [ -f "$HERDR_SKILL_MD" ] && cmp -s "${HERDR_SKILL_TMP}.managed" "$HERDR_SKILL_MD"; then
+            HERDR_SKILL_RESULT="current"
+            echo -e "${YELLOW}  - herdr skill already current${NC}"
+        else
+            mkdir -p "$SKILLS_DIR/herdr"
+            cat "${HERDR_SKILL_TMP}.managed" > "$HERDR_SKILL_MD"
+            HERDR_SKILL_RESULT="installed"
+            echo -e "${BLUE}==> Installed herdr skill for opencode (herdr $HERDR_VER)${NC}"
+        fi
+    else
+        # A failed fetch (network, or this tag has no skill) must not touch the
+        # existing file: never leave a broken or half-written skill behind.
+        HERDR_SKILL_RESULT="fetch-failed"
+    fi
+    rm -f "$HERDR_SKILL_TMP" "${HERDR_SKILL_TMP}.managed"
+fi
+
+# 5. Wire the shell configuration in with a single sourced line.
 #
 # Keyed on the `# terminal-bootstrap` marker rather than on the source line, because
 # that line embeds this clone's absolute path and so only ever matches the clone it
@@ -138,6 +248,20 @@ SOURCE_LINE="[ -f \"$TB_ROOT/shell/init.sh\" ] && . \"$TB_ROOT/shell/init.sh\""
 PREV_ROOTS="$(sed -n 's|^\[ -f "\(.*\)/shell/init\.sh" \] && \. .*$|\1|p' "$SHELL_RC" | sort -u)"
 
 RC_TMP="$(mktemp "${TMPDIR:-/tmp}/tb-rc.XXXXXX")"
+
+# First drop the three atuin lines an older version of this installer wrote by hand
+# into the rc; shell/init.sh inits atuin properly without them, and these are the
+# only rc lines this step will ever touch. A separate pass before the marker rewrite
+# below keeps that concern out of the block-rewriting logic, whose getline reads the
+# line under the marker and would otherwise print a legacy line back into the rc.
+awk '
+    /^[ \t]*eval "\$\(atuin init zsh --disable-up-arrow\)"[ \t]*$/ { next }
+    /^[ \t]*bindkey "\^\[\[A" atuin-up-search-vicmd[ \t]*$/ { next }
+    /^[ \t]*bindkey "\^\[\[A" atuin-up-search[ \t]*$/ { next }
+    { print }
+' "$SHELL_RC" > "$RC_TMP"
+
+RC_NEW="$(mktemp "${TMPDIR:-/tmp}/tb-rc.XXXXXX")"
 TB_SOURCE_LINE="$SOURCE_LINE" awk '
     BEGIN {
         marker = "# terminal-bootstrap"
@@ -154,15 +278,15 @@ TB_SOURCE_LINE="$SOURCE_LINE" awk '
     }
     { print }
     END { if (!seen) { print ""; print marker; print newsrc } }
-' "$SHELL_RC" > "$RC_TMP"
+' "$RC_TMP" > "$RC_NEW"
 
-if ! grep -qxF "$SOURCE_LINE" "$RC_TMP"; then
+if ! grep -qxF "$SOURCE_LINE" "$RC_NEW"; then
     echo -e "${YELLOW}==> Could not wire $SHELL_RC; left it unchanged${NC}" >&2
-elif ! cmp -s "$SHELL_RC" "$RC_TMP"; then
+elif ! cmp -s "$SHELL_RC" "$RC_NEW"; then
     # Written through the existing file rather than moved over it: `mv` would leave
     # the rc owned by whoever ran this and readable only by them, which is mktemp's
     # 0600, not the mode the file had.
-    cat "$RC_TMP" > "$SHELL_RC"
+    cat "$RC_NEW" > "$SHELL_RC"
     if [ -z "$PREV_ROOTS" ]; then
         echo -e "${BLUE}==> Adding terminal-bootstrap to $SHELL_RC...${NC}"
     else
@@ -174,27 +298,58 @@ elif ! cmp -s "$SHELL_RC" "$RC_TMP"; then
         done
     fi
 fi
-rm -f "$RC_TMP"
+rm -f "$RC_TMP" "$RC_NEW"
 
-# 5. Atuin Directory-Scoped History Setup
-mkdir -p "$HOME/.config/atuin"
+# 6. Atuin Directory-Scoped History Setup
+ATUIN_CONFIG="$HOME/.config/atuin/config.toml"
+mkdir -p "$(dirname "$ATUIN_CONFIG")"
 
 # Only write config if it doesn't already exist: an existing atuin config is the
-# user's, not ours. But someone upgrading from an older install already has one
-# containing the wrong key, so say so at the end rather than silently doing nothing.
+# user's, not ours, and is never overwritten whole. An existing config that still
+# carries an older installer's bogus key gets exactly that one line fixed -- below.
 ATUIN_NEEDS_KEY=0
-if [ ! -f "$HOME/.config/atuin/config.toml" ]; then
-    cat << 'EOF' > "$HOME/.config/atuin/config.toml"
+ATUIN_KEY_FIXED=0
+ATUIN_BOGUS_KEY=0
+if [ ! -f "$ATUIN_CONFIG" ]; then
+    cat << 'EOF' > "$ATUIN_CONFIG"
 search_mode = "prefix"
 filter_mode_shell_up_key_binding = "directory"
 style = "compact"
 inline_height = 20
 EOF
-elif ! grep -q 'filter_mode_shell_up_key_binding' "$HOME/.config/atuin/config.toml"; then
-    ATUIN_NEEDS_KEY=1
+else
+    # An older version of this installer wrote `up_key_dir_scoped = true`, a key
+    # atuin has no such setting for -- it is not in atuin's default-config, so
+    # atuin silently ignores it. The real, working key is
+    # filter_mode_shell_up_key_binding. Swap the bogus line for the real one, but
+    # only when the real key is not already present: a config that already scopes
+    # Up Arrow is left as the user's, and we touch only the one line we can prove
+    # the old installer wrote.
+    if grep -q '^[[:space:]]*up_key_dir_scoped = true[[:space:]]*$' "$ATUIN_CONFIG"; then
+        if grep -q 'filter_mode_shell_up_key_binding' "$ATUIN_CONFIG"; then
+            ATUIN_BOGUS_KEY=1
+        else
+            ATUIN_TMP="$(mktemp "${TMPDIR:-/tmp}/tb-atuin.XXXXXX")"
+            sed 's/^[[:space:]]*up_key_dir_scoped = true[[:space:]]*$/filter_mode_shell_up_key_binding = "directory"/' \
+                "$ATUIN_CONFIG" > "$ATUIN_TMP"
+            # Prove the swap actually happened before it reaches the user's file:
+            # bogus key gone, real key present. Otherwise leave the config alone.
+            if ! grep -q 'up_key_dir_scoped' "$ATUIN_TMP" \
+               && grep -q 'filter_mode_shell_up_key_binding' "$ATUIN_TMP"; then
+                # Written through the existing file, not mv'd, to keep its owner and mode.
+                cat "$ATUIN_TMP" > "$ATUIN_CONFIG"
+                ATUIN_KEY_FIXED=1
+            else
+                ATUIN_BOGUS_KEY=1
+            fi
+            rm -f "$ATUIN_TMP"
+        fi
+    elif ! grep -q 'filter_mode_shell_up_key_binding' "$ATUIN_CONFIG"; then
+        ATUIN_NEEDS_KEY=1
+    fi
 fi
 
-# 6. herdr pane navigation: arrow keys as well as hjkl.
+# 7. herdr pane navigation: arrow keys as well as hjkl.
 #
 # Each action is written as a list so herdr's own prefix+h/j/k/l keeps working. A bare
 # string would replace it, and this is meant to add a second way in rather than swap one
@@ -260,97 +415,48 @@ HERDR_KEYS
     fi
 fi
 
-# 7. Review workflow: hunk-review-pane on PATH, plus agent skills.
-echo -e "${BLUE}==> Installing review workflow...${NC}"
-
-# `ln -sfn` swaps an existing symlink atomically, which is what a re-run needs.
-# Against a real file or directory it does something else entirely: it links
-# *inside* the destination, producing ~/.local/bin/hunk-review-pane/hunk-review-pane
-# and leaving the stale copy in place, still shadowing us. So a non-symlink has to
-# get out of the way -- moved to $3, never deleted: nothing here proves the thing
-# in the way is a leftover of ours rather than something you wrote by hand. If the
-# parking spot is taken too, touch neither and say so.
-relink() {
-    if [ -e "$2" ] && [ ! -L "$2" ]; then
-        if [ -e "$3" ]; then
-            echo -e "${YELLOW}  - $2 is in the way and $3 already exists; left both alone${NC}"
-            return 0
-        elif mv "$2" "$3" 2>/dev/null; then
-            echo -e "${YELLOW}  - moved $2 aside to $3${NC}"
-        else
-            echo -e "${YELLOW}  - $2 is in the way and could not be moved; left it alone${NC}"
-            return 0
-        fi
-    fi
-    ln -sfn "$1" "$2"
-}
-
-mkdir -p "$HOME/.local/bin"
-relink "$TB_ROOT/bin/hunk-review-pane" "$HOME/.local/bin/hunk-review-pane" \
-       "$HOME/.local/bin/hunk-review-pane.disabled"
-
-SKILLS_DIR="$HOME/.config/opencode/skills"
-mkdir -p "$SKILLS_DIR"
-# Parked one level above skills/, not beside it: opencode discovers a skill from
-# skills/<name>/SKILL.md, so a hunk-review-pane.disabled/ left inside skills/ would
-# still hold a live SKILL.md and come back as a duplicate. One level up is not scanned.
-relink "$TB_ROOT/skills/hunk-review-pane" "$SKILLS_DIR/hunk-review-pane" \
-       "$HOME/.config/opencode/hunk-review-pane.disabled"
-
-# hunk generates its own skill from source metadata, so symlink it rather than
-# writing a copy that would drift on the next hunk release.
-HUNK_SKILL_MD="$SKILLS_DIR/hunk-review/SKILL.md"
-HUNK_SKILL_LINKED=0
-if is_installed hunk; then
-    HUNK_SKILL="$(hunk skill path 2>/dev/null || true)"
-    # `hunk skill path` resolves through the running binary, which brew keeps under
-    # a versioned Cellar path. Linking that pins the skill to today's version and
-    # dangles once `brew cleanup` removes it, so prefer the opt prefix, which brew
-    # re-points on every upgrade.
-    HUNK_OPT="$(brew --prefix hunk 2>/dev/null || true)"
-    if [ -n "$HUNK_OPT" ] && [ -f "$HUNK_OPT/libexec/skills/hunk-review/SKILL.md" ]; then
-        HUNK_SKILL="$HUNK_OPT/libexec/skills/hunk-review/SKILL.md"
-    fi
-    if [ -n "$HUNK_SKILL" ] && [ -f "$HUNK_SKILL" ]; then
-        mkdir -p "$SKILLS_DIR/hunk-review"
-        relink "$HUNK_SKILL" "$HUNK_SKILL_MD" "$HUNK_SKILL_MD.disabled"
-        HUNK_SKILL_LINKED=1
-    fi
-fi
-
-# An older version of this installer hand-wrote that SKILL.md, and its central rule
-# is inverted: it tells the agent to drive hunk's TUI and stage with it, which hunk's
-# own generated skill explicitly forbids. Whenever the symlink above did not land,
-# that wrong file is still what the agent reads, so retire it. Renamed rather than
-# deleted because nothing proves the file is ours -- skill discovery keys on the
-# literal SKILL.md name, so a renamed file is inert but recoverable.
-STALE_HUNK_SKILL=0
-if [ "$HUNK_SKILL_LINKED" = 0 ] && [ -f "$HUNK_SKILL_MD" ] && [ ! -L "$HUNK_SKILL_MD" ]; then
-    # Guarded, not bare: under `set -e` a failed mv would abort the installer here,
-    # skipping the herdr step and the entire summary — including the notice below.
-    if [ ! -e "$HUNK_SKILL_MD.disabled" ] && mv "$HUNK_SKILL_MD" "$HUNK_SKILL_MD.disabled" 2>/dev/null; then
-        STALE_HUNK_SKILL=1
-    else
-        echo -e "${YELLOW}  - could not rename $HUNK_SKILL_MD; it may contain stale advice${NC}"
-    fi
-fi
-
-# Let herdr track opencode's agent state in the pane UI.
-if is_installed herdr && is_installed opencode; then
-    herdr integration install opencode >/dev/null 2>&1 || true
-fi
-
 echo -e "${GREEN}==> Setup complete.${NC}"
 if [ -n "$FAILED_TOOLS" ]; then
     echo -e "${YELLOW}    These tools failed to install:${FAILED_TOOLS}${NC}"
     echo -e "${YELLOW}    Re-run this script to retry them.${NC}"
 fi
-if [ "$STALE_HUNK_SKILL" = 1 ]; then
-    echo -e "${YELLOW}    hunk's generated review skill could not be linked.${NC}"
-    echo -e "${YELLOW}    An older install left a hand-written hunk-review skill whose staging${NC}"
-    echo -e "${YELLOW}    advice contradicts hunk's own, so it was renamed out of the way:${NC}"
-    echo -e "${YELLOW}      $HUNK_SKILL_MD.disabled${NC}"
-    echo -e "${YELLOW}    Re-run this script once hunk installs to get the real skill.${NC}"
+case "$HERDR_SKILL_STATE" in
+    unparseable-version)
+        echo -e "${YELLOW}    Could not read the installed herdr version, so the herdr skill for${NC}"
+        echo -e "${YELLOW}    opencode was not installed. Check herdr and re-run this script.${NC}"
+        ;;
+    upgrade-failed)
+        echo -e "${YELLOW}    herdr was below the $HERDR_FLOOR floor and \`brew upgrade herdr\` failed,${NC}"
+        echo -e "${YELLOW}    so the herdr skill for opencode was not installed. Upgrade herdr and${NC}"
+        echo -e "${YELLOW}    re-run this script.${NC}"
+        ;;
+    floor-not-met)
+        echo -e "${YELLOW}    herdr is still below the $HERDR_FLOOR floor after the upgrade attempt, so${NC}"
+        echo -e "${YELLOW}    the herdr skill for opencode was not installed. Re-run once a newer${NC}"
+        echo -e "${YELLOW}    herdr is available.${NC}"
+        ;;
+    herdr-missing)
+        echo -e "${YELLOW}    herdr is not installed, so the herdr skill for opencode was skipped.${NC}"
+        echo -e "${YELLOW}    Install herdr and re-run this script.${NC}"
+        ;;
+esac
+if [ "$HERDR_SKILL_RESULT" = "fetch-failed" ]; then
+    echo -e "${YELLOW}    Could not fetch the herdr skill (${HERDR_SKILL_URL}). Any existing${NC}"
+    echo -e "${YELLOW}    skill was left untouched; re-run this script once the network allows.${NC}"
+fi
+if [ -n "$HERDR_UPGRADED_TO" ]; then
+    echo -e "${YELLOW}    herdr was upgraded to $HERDR_UPGRADED_TO. Restart the herdr server to${NC}"
+    echo -e "${YELLOW}    activate it: the running server keeps the old binary in memory until${NC}"
+    echo -e "${YELLOW}    you restart it.${NC}"
+fi
+if [ "$ATUIN_KEY_FIXED" = 1 ]; then
+    echo -e "${YELLOW}    Your atuin config carried the old installer's bogus key; the real${NC}"
+    echo -e "${YELLOW}    directory-scoping key was set in its place.${NC}"
+fi
+if [ "$ATUIN_BOGUS_KEY" = 1 ]; then
+    echo -e "${YELLOW}    Your atuin config already scopes Up Arrow correctly. It also still has an${NC}"
+    echo -e "${YELLOW}    old installer's bogus key (up_key_dir_scoped); atuin ignores it, so you may${NC}"
+    echo -e "${YELLOW}    delete that line.${NC}"
 fi
 if [ "$ATUIN_NEEDS_KEY" = 1 ]; then
     echo -e "${YELLOW}    Your existing ~/.config/atuin/config.toml was left untouched.${NC}"

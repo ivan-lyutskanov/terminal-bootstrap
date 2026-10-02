@@ -20,11 +20,10 @@ case ":$PATH:" in
     *) export PATH="$HOME/.local/bin:$PATH" ;;
 esac
 
-# Editor. yazi, lazygit and hunk all open $EDITOR, which is what makes the bundle
-# feel like one tool rather than four. What they need is for $EDITOR to be set at
-# all -- hunk is the strictest and has no fallback, it just reports "$EDITOR is not
-# set" -- so this is a default, not an override. An $EDITOR you already set is a
-# real preference, and all three work with whatever it names.
+# Editor. yazi and lazygit both open files in $EDITOR, which is what makes the
+# bundle feel like one tool rather than several. What they need is for $EDITOR to
+# be set at all, so this is a default, not an override. An $EDITOR you already set
+# is a real preference, and both work with whatever it names.
 #
 # Deliberately no `alias vim=micro` either: nothing here ever invokes vim, so the
 # alias bought nothing but a shadowed binary for anyone who actually uses it.

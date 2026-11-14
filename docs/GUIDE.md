@@ -1,72 +1,13 @@
 # Guide
 
-This is a keyboard-driven terminal workspace made of seven small tools that already
-compose well. **herdr** holds the panes and keeps them alive, **hunk** shows a diff you
-can annotate, **opencode** is the agent that reads those annotations, **lazygit** does
-the staging and committing, **yazi** browses, **micro** edits, and **atuin** remembers
-what you typed. There is no framework here — the glue is a few environment variables in
-`shell/init.sh` and one small script. The single most important piece of that glue is
-`$EDITOR`: yazi, lazygit and hunk all hand files to it, so "open this" means the same
-thing everywhere. It defaults to micro, and defers to an editor you have already set.
-What follows is what the pieces are actually for.
-
----
-
-## Review a change with your agent
-
-This is the workflow the bundle exists for.
-
-You are inside a herdr session with an agent running in one pane, and it has just
-finished a change. Rather than read the diff scrolling past in the agent's transcript,
-have it open a review:
-
-```bash
-hunk-review-pane
-```
-
-That splits a pane to the right of the agent's own pane, runs `hunk diff` in it, and
-waits until hunk has registered a live session. It prints the pane it created and the
-repository it is reviewing:
-
-```
-pane_id=w1:pQ
-repo=/Users/you/Projects/example
-```
-
-The diff is now in a pane **you** own, next to the agent. The split does not take focus,
-so press `Ctrl+b` then `l` to move into it. Walk it:
-
-| Key | Action |
-|-----|--------|
-| `]` / `[` | Next / previous hunk |
-| `c` | Leave a note on the selected hunk |
-| `e` | Open the selected file in `$EDITOR` |
-| `r` | Refresh the review |
-| `q` | Quit |
-
-Leave a note on each hunk you want changed, then tell the agent to go address them. It
-reads your notes back with:
-
-```bash
-hunk session comment list --repo . --type user --json
-```
-
-Each note carries the file, the hunk index, your text, and the line it is attached to.
-The agent edits the code, replies inline so its answer appears next to your note in the
-same pane, and reloads the view. Its own generated skill covers that protocol; the skill
-this repo installs alongside it, `skills/hunk-review-pane/SKILL.md`, covers reading your
-notes and the rule that it must never resolve them on your behalf.
-
-`hunk-review-pane` needs herdr: it reads `HERDR_PANE_ID` to know which pane it was
-called from, and refuses outside a session. It also refuses if a hunk session is already
-live for the repository, since a second one makes every `--repo` selector ambiguous. To
-see what is live:
-
-```bash
-hunk session list
-```
-
-hunk never stages anything. It is a viewer you can write on. Staging is lazygit's job.
+This is a keyboard-driven terminal workspace made of six small tools that already
+compose well. **herdr** holds the panes and keeps them alive, **opencode** is the agent
+running in them, **lazygit** does the staging and committing, **yazi** browses,
+**micro** edits, and **atuin** remembers what you typed. There is no framework here —
+the glue is a few environment variables in `shell/init.sh` and one small script. The
+single most important piece of that glue is `$EDITOR`: yazi and lazygit both hand files
+to it, so "open this" means the same thing everywhere. It defaults to micro, and defers
+to an editor you have already set. What follows is what the pieces are actually for.
 
 ---
 
@@ -89,11 +30,12 @@ lazygit
 ```
 
 `Space` stages or unstages the selected file. `Enter` on a file opens the staging view,
-where `←` and `→` step between hunks and `Space` stages just the lines under the cursor.
+where `←` and `→` step between the changes and `Space` stages just the lines under the
+cursor.
 `c` opens lazygit's own commit panel; `C` writes the message in micro instead. `P` pushes.
 
-One thing worth knowing: `[` and `]` switch tabs in lazygit. They do not move between
-changes, which is what the equivalent keys do in hunk.
+One thing worth knowing: `[` and `]` switch tabs in lazygit, not the changes inside a
+file — stepping between those is `←` / `→` in the staging view.
 
 ---
 
@@ -128,7 +70,7 @@ it. `Ctrl+b` then `q` detaches on purpose.
 `Ctrl+b` then `v` splits the pane you are in; `Ctrl+b` then an arrow key moves focus
 between panes. herdr itself binds only `h` / `j` / `k` / `l` there; the arrows are added
 beside them by this repo, and both stay live. Splits are also scriptable, which is how
-`hunk-review-pane` puts the diff where it does:
+you put a new command in a pane you choose rather than the focused one:
 
 ```bash
 herdr pane split --pane "$HERDR_PANE_ID" --direction right --ratio 0.5 --cwd "$PWD" --no-focus
@@ -151,33 +93,6 @@ herdr session list
 
 What each tool is for, the keys the workflows above need, and where the rest lives.
 
-### hunk
-
-A review-first diff viewer for agent-authored changesets. It renders a diff and lets you
-attach notes to individual hunks that an agent can read through a local daemon; it does
-not stage, and it is not a replacement for `git add -p`.
-
-```bash
-hunk diff             # working tree
-hunk diff --staged    # staged changes
-hunk session list     # what is currently live
-```
-
-`]` / `[` next / previous hunk · `c` leave a note · `e` open the file in `$EDITOR` ·
-`r` refresh · `q` quit.
-
-Docs: <https://hunk.dev/docs>. Press `?` in the TUI for the full keymap.
-
-### hunk-review-pane
-
-This repository's own command, installed to `~/.local/bin`. It is the two tools wired
-together: split a pane off the caller's own pane, start `hunk diff` in it, and confirm
-hunk registered a session before returning, so an agent can drive the review immediately.
-
-It takes one optional argument, the split ratio, defaulting to `0.5`. The script is
-`bin/hunk-review-pane` in this repository and the agent-facing skill is
-`skills/hunk-review-pane/SKILL.md`.
-
 ### herdr
 
 A terminal workspace manager for AI coding agents. Panes, tabs and workspaces backed by a
@@ -197,9 +112,9 @@ Docs: <https://herdr.dev>. Press `Ctrl+b` then `?` in the app for the full keyma
 
 A terminal text editor with the shortcuts you already know from every GUI editor, so
 there is no modal learning curve in the middle of a workflow. Set here as the default
-`$EDITOR` and `$VISUAL`, which is what makes yazi, lazygit and hunk all open the same
-thing. If you already have an editor of your own, that is what stays set and all three
-follow it instead.
+`$EDITOR` and `$VISUAL`, which is what makes yazi and lazygit both open the same thing.
+If you already have an editor of your own, that is what stays set and both follow it
+instead.
 
 `Ctrl+s` save · `Ctrl+q` quit · `Ctrl+f` find · `Ctrl+z` / `Ctrl+y` undo / redo ·
 `Ctrl+e` opens the command bar (`goto 42` to jump to a line).
@@ -224,8 +139,8 @@ Docs: <https://github.com/sxyazi/yazi>. Press `~` or `F1` in the TUI for the ful
 
 ### lazygit
 
-A git TUI, and the only tool in this bundle that stages anything. Everything the review
-loop decides ends up here as staged hunks and a commit message.
+A git TUI, and the only tool in this bundle that stages anything. Everything you change
+ends up here as staged changes and a commit message.
 
 `Space` stage / unstage · `Enter` open the staging view (`←` / `→` between changes) ·
 `c` commit · `A` amend · `P` push · `p` pull.
@@ -247,9 +162,9 @@ Docs: <https://docs.atuin.sh>. `atuin --help` lists the CLI, and
 
 ### opencode
 
-A terminal-native AI coding agent, and the intended occupant of the pane next to your
-review. `bootstrap.sh` gives it the `hunk-review-pane` skill plus hunk's own generated
-one, and registers it with herdr so its state shows in the pane chrome.
+A terminal-native AI coding agent. `bootstrap.sh` writes it a herdr skill,
+version-matched to the installed herdr, and registers it with herdr so its agent state
+shows in the pane chrome.
 
 ```bash
 opencode
